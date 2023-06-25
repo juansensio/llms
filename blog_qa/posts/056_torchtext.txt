@@ -1,0 +1,240 @@
+
+Torchtext
+En posts anteriores hemos visto diferentes aspectos de la librería de redes neuronales Pytorch. Sin embargo, existen otras herramientas dentro del mismo ecosistema que utilizan las características fundamentales de Pytorch para construir por encima soluciones enfocadas a campos de aplicación concretos. Entre estas librerías podemos encontrar torchvision, para aplicaciones de visión artificial, torchtext, para aplicaciones de procesamiento de lenguaje, torchaudio, para aplicaciones en las que procesemos sonido, y muchas otras. Estas librerías contienen modelos, datasets y otras operaciones comunes para cada aplicación. De hecho, ya hemos utilizado algunas de estas librerías en posts anteriores. En este post veremos en detalle los aspectos más interesantes de la librería torchtext.
+import torch
+import torchtext
+
+torchtext.__version__
+
+'0.8.0a0+cd6902d'
+
+Datasets
+Una de las principales funcionalidades que nos ofrece torchtext es la posibilidad de utilizar datasets comunes en el campo del NPL, listos para entrenar nuestros modelos. Puedes encontrar una lista completa de los datasets disponibles aquí. Vamos a ver cómo descargar el dataset IMDB, que contiene opiniones sobre películas y nos permite entrenar modelos para clasificación de texto, o en este caso sentiment analysis.
+TEXT = torchtext.data.Field(tokenize = 'spacy')
+LABEL = torchtext.data.LabelField(dtype = torch.long)
+
+En primer lugar definimos los Fields, que nos permiten indicarle a torchtext el tipo de dato y el procesado a aplicar a cada uno de ellos. En este caso, el text será procesado por el tokeinzador spacy mientraas que las etiquetas son simplemente un número entero (en este caso, 0 ó 1). Una vez definidos los tipos de variable, podemos descargar el dataset de la siguiente manera.
+
+⚡️ Para instalar spacy y descargar los diferentes lenguajes, visita su documentación.
+
+train_data, test_data = torchtext.datasets.IMDB.splits(TEXT, LABEL)
+
+downloading aclImdb_v1.tar.gz
+
+
+aclImdb_v1.tar.gz: 100%|██████████| 84.1M/84.1M [00:09<00:00, 8.57MB/s]
+
+# ver muestras del dataset
+
+print(vars(train_data.examples[0]))
+
+{'text': ['If', 'you', 'ever', 'see', 'a', 'stand', 'up', 'comedy', 'movie', 'this', 'is', 'the', 'one', '.', 'You', 'will', 'laugh', 'nonstop', 'if', 'you', 'have', 'any', 'sense', 'of', 'humor', 'at', 'all', '.', 'This', 'is', 'a', 'once', 'in', 'a', 'lifetime', 'performance', 'from', 'a', 'once', 'in', 'a', 'lifetime', 'performer', '.', 'This', 'is', 'a', 'stand', 'up', 'standard', '.'], 'label': 'pos'}
+
+Una vez descargado el dataset, tenemos que procesarlo. En aplicaciones de NLP este paso suele consistir en el tokenizado: en primer lugar, se elabora un diccionario con todas las palabras presentes en el dataset (o las más comunes). Después, se le asigna un número a cada palabra dependiendo del tokenizador. Opcionalmente, algunos tokenizadores pre-procesan el texto para, por ejemplo, trabajar solo con minúsculas, separar terminaciones, etc. En este ejemplo, vamos a quedarnos con las 10.000 palabras más frecuentes.
+MAX_VOCAB_SIZE = 10000
+
+TEXT.build_vocab(train_data, max_size = MAX_VOCAB_SIZE)
+LABEL.build_vocab(train_data)
+
+len(TEXT.vocab), len(LABEL.vocab)
+
+(10002, 2)
+
+# palabras más frecuentes
+
+TEXT.vocab.freqs.most_common(10)
+
+[('the', 289838),
+ (',', 275296),
+ ('.', 236834),
+ ('and', 156483),
+ ('a', 156282),
+ ('of', 144055),
+ ('to', 133886),
+ ('is', 109095),
+ ('in', 87676),
+ ('I', 77546)]
+
+El último paso para tener nuestros datos listos para entrenar una red neuronal es construir el DataLoader encargado de alimentar nuestra red con batches de frases de manera eficiente. Para ello utilizamos la clase torchtext.data.BucketIterato, que además juntará frases de similar longitud minimazndo el padding necesario.
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+train_iter, test_iter = torchtext.data.BucketIterator.splits((train_data, test_data), batch_size=32, device=device)
+
+Con el dataloader definido, podríamos ya entrenar un modelo para, en este caso, clasificación de texto. Puedes ver un ejemplo en este post.
+Data
+Si bien podemos usar los datasets disponibles en torchtext para empezar a jugar con la librería y aprender su funcionalidad básica, llegará un momento en el que precises cargar tus propios datos para tu aplicación concreta. Para ello, torchtext ofrece diferente funcionalidad de más bajo nivel para procesar y preparar tus propios datos de manera eficiente. Puedes aprender sobre esto aquí. Vamos a ver cómo podemos, por ejemplo, crear un dataset a partir del siguiente archivo csv.
+import pandas as pd
+
+data = pd.read_csv('data.csv')
+data
+
+
+
+
+
+
+
+id
+keyword
+location
+text
+target
+
+
+
+
+0
+1
+NaN
+NaN
+Our Deeds are the Reason of this #earthquake M...
+1
+
+
+1
+4
+NaN
+NaN
+Forest fire near La Ronge Sask. Canada
+1
+
+
+2
+5
+NaN
+NaN
+All residents asked to 'shelter in place' are ...
+1
+
+
+3
+6
+NaN
+NaN
+13,000 people receive #wildfires evacuation or...
+1
+
+
+4
+7
+NaN
+NaN
+Just got sent this photo from Ruby #Alaska as ...
+1
+
+
+...
+...
+...
+...
+...
+...
+
+
+7608
+10869
+NaN
+NaN
+Two giant cranes holding a bridge collapse int...
+1
+
+
+7609
+10870
+NaN
+NaN
+@aria_ahrary @TheTawniest The out of control w...
+1
+
+
+7610
+10871
+NaN
+NaN
+M1.94 [01:04 UTC]?5km S of Volcano Hawaii. htt...
+1
+
+
+7611
+10872
+NaN
+NaN
+Police investigating after an e-bike collided ...
+1
+
+
+7612
+10873
+NaN
+NaN
+The Latest: More Homes Razed by Northern Calif...
+1
+
+
+
+7613 rows × 5 columns
+
+
+💡 Puedes descargar el dataset aquí.
+
+En primer lugar, y de la misma manera que hemos hecho antes, definimos los diferentes Fields (que en este caso tienen que corresponder con las diferentes columnas del archivo).
+ID = torchtext.data.RawField()
+KEYWORD = torchtext.data.RawField()
+LOCATION = torchtext.data.RawField()
+TEXT = torchtext.data.Field(tokenize="spacy")
+LABEL = torchtext.data.LabelField(dtype = torch.long)
+
+Ahora podemos crear nuestro dataset de la siguiente manera, directamente a partir del archivo en formato csv.
+dataset = torchtext.data.TabularDataset(
+    path = 'data.csv',
+    format = 'CSV',
+    fields = [('id', ID), ('keyword', KEYWORD), ('location', LOCATION), ('text', TEXT), ('target', LABEL)],
+    skip_header = True
+)
+
+# ver muestras del dataset
+
+print(vars(dataset.examples[0]))
+
+{'id': '1', 'keyword': '', 'location': '', 'text': ['Our', 'Deeds', 'are', 'the', 'Reason', 'of', 'this', '#', 'earthquake', 'May', 'ALLAH', 'Forgive', 'us', 'all'], 'target': '1'}
+
+Los datasets de torchvision nos permiten de manera muy sencilla partir los datos en diferentes conjuntos, por ejemplo si queremos un split de validación.
+train_dataset, valid_dataset = dataset.split(
+    split_ratio=0.6,
+    stratified=True,
+    strata_field='target'
+)
+
+A partir de aquí, los siguientes pasos ya son exactamente igual que hemos visto en la sección anterior para el tokenizado y luego definir el dataloader.
+También podrás crear tus datasets a partir de otros formatos de archivo, como por ejemplo TSVo JSON. Aquí encontrarás toda la información necesaria para ello.
+Customizando el tokenizador
+Además de ser capaz de cargar tus propios datos, es muy probable que necesites procesarlos de alguna manera concreta. Esto es sencillo en torchtext, simplemente sobreescribe todos los parámetros necesarios en tu Vocab. El siguiente ejemplo construye un tokenizador específico para trabajar con el modelo de transformer BERT (puedes aprender más sobre esto aquí).
+from transformers import BertTokenizer
+
+# descarga el tokenizador de BERT de la librería transformers
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+# corta las frases a la longitud máxima de BERT3
+max_input_length = tokenizer.max_model_input_sizes['bert-base-uncased']
+def tokenize_and_cut(sentence):
+    tokens = tokenizer.tokenize(sentence)
+    tokens = tokens[:max_input_length-2]
+    return tokens
+
+TEXT = torchtext.data.Field(
+            batch_first = True,
+            use_vocab = False,
+            tokenize = tokenize_and_cut,
+            preprocessing = tokenizer.convert_tokens_to_ids,
+            init_token = tokenizer.cls_token_id,
+            eos_token = tokenizer.sep_token_id,
+            pad_token = tokenizer.pad_token_id,
+            unk_token = tokenizer.unk_token_id
+)
+
+/home/sensio/miniconda3/lib/python3.8/site-packages/torchtext/data/field.py:150: UserWarning: Field class will be retired soon and moved to torchtext.legacy. Please see the most recent release notes for further information.
+  warnings.warn('{} class will be retired soon and moved to torchtext.legacy. Please see the most recent release notes for further information.'.format(self.__class__.__name__), UserWarning)
+
+Como puedes observar, torchtext nos da la libertad de utilizar nuestra propia lógica de procesado e incluso importarla desde otras librerías, como transformers.
+Resumen
+En este post hemos visto la funcionalidad principal que nos ofrece la librería torchtext a la hora de preparar nuestros datos para tareas de procesado de lenguaje. Por un lado, podemos utilizar alguno de sus datasets listos para entrenar modelos (un buena forma de familiarizarse con la librería y aprender sobre NLP). Por otro lado, también nos ofrece la flexibilidad necesaria para cargar y procesar nuestros propios datasets de manera eficiente. Otras características que no hemos visto en el post incluyen: métricas comunes en NLP, módulos de redes neuronales específicos para NLP y varias utilidades que te pueden ayudar a la hora de llevar a cabo este tipo de aplicaciones de lenguaje.

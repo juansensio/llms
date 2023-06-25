@@ -1,0 +1,104 @@
+
+DLOps - Despliegue
+En este post vamos a aprender como desplegar nuestros modelos en producción. Para ello usaremos FastAPI, un framework de Python para el desarrollo de APIs, Docker para paquetizar la API y Heroku para desplegar la API en producción.
+FastAPI
+Si bien existen diferente frameworks para crear APIs en Python, como Flask por ejemplo, aquí vamos a usar FastAPI ya que nos ofrece un montón de funcionalidad que usaremos a lo largo de esta serie de posts. Si no conoces este proyecto, te recomiendo que navegues por su documentación.
+
+Pudes instalar FastAPI con el comando pip install fastapi[all].
+
+Una vez instalado, crea un script llamado app.py con el siguiente contenido:
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+Ahora, puedes arrancar tu API en local con el comando uvicorn app:app --reload. Si todo va bien, deberías ver un mensaje similar a
+
+Si ahora abres tu navegador y escribes http://localhost:8000/, deberás ver el mensaje devuelto por la API.
+{
+  "message": "Hello World"
+}
+
+Sencillo, ¿verdad? Ahora simplemente tenemos que hacer que esta API (que como puedes ver no es más que un script de Python) carge nuestro modelo, reciba entradas (en nuestro caso imágenes) y devuelva las predicciones. Esto lo conseguiremos con el siguiente código:
+from fastapi import FastAPI, File, UploadFile
+from PIL import Image
+import onnxruntime as ort
+import numpy as np
+import io
+import math
+
+app = FastAPI()
+
+ort_session = ort.InferenceSession('models/binary_classifier_3.onnx')
+TRHESHOLD = 0.5
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    request_object_content = await file.read()
+    img = Image.open(io.BytesIO(request_object_content))
+    input = np.expand_dims(np.array(img, dtype=np.uint8), axis=0)
+    ort_inputs = {
+        "input": input
+    }
+    ort_output = ort_session.run(['output'], ort_inputs)[0]
+    output = sigmoid(ort_output)
+    return {
+        "proba": output,
+        "label": "3" if output > TRHESHOLD else "no 3"
+    }
+
+Una de las ventajas que FastAPI ofrece es la de generación automática de documentación interactiva. Si visitas http://localhost:8000/docs, podrás probar tu nuevo endpoint al cual enviarle imágenes y recibir las predicciones del modelo. Siéntete libre de personalizar tu API a tu gusto 😁.
+Docker
+Una vez implementada la lógica de nuestra API es momento de desplegarla en la nube para que todo el mundo tenga acceso. Sin embargo, para facilitar este proceso, primero crearemos una imágen de Docker que contendrá el código de nuestra API y todas sus dependencias. Esto nos evitará dolores de cabeza a la hora de crear el entorno de producción adecuado (versión de sistema operativo, versión de dependencias, ...). Simplemente, si nuestro servidor tiene Docker instalado, será capaz de ejecutar nuestra API.
+
+Puedes instalar Docker siguiendo las instrucciones.
+
+Crea un archivo llamado Dockerfile con el siguiente contenido:
+FROM continuumio/miniconda3
+
+RUN conda install -y -c conda-forge \
+    pillow \
+    onnxruntime \
+    fastapi \
+    uvicorn \
+    python-multipart
+
+COPY ./models /models
+COPY ./app.py /app.py
+
+CMD uvicorn app:app --host=0.0.0.0 --port=$PORT
+
+Y, para crear la imagen de Docker, ejecuta el comando docker build -t dlops ., donde dlops es el nombre que le quieras dar a tu imagen. Ahora podrás ejectuar la imágen de Docker con el comando docker run -p 8000:8000 -e PORT=8000 dlops para arrancar la API.
+
+Durante el desarrollo con Docker no es recomendable copiar directamente tu código fuente en el paso de build, ya que si haces cambios estos no se reflejarán hasta que hagas un nuevo build. Para ello te dejo como ejemplo el archivo Dockerfile.dev y docker-compose-yml, que "montan" el código como un volumen dentro de la imagen Docker y por lo tanto estos cambios si se verán reflejados.
+
+Heroku
+El último paso es el de subir nuestra imagen de Docker a Heroku y ejectuarla para obtener ana url pública con la que tener acceso a nuestra API.
+
+Puedes instalar la CLI de Horeku siguiendo las instrucciones.
+
+Lo primero que necesitaremos será logearnos en Heroku usando la CLI.
+heroku login
+
+Una vez logeados deberemos generar las credenciales necesarias para guardar nuestra imagen de Docker en el registro de Heroku
+heroku container:login
+
+Con el comando hrekou create podemos crear una nueva aplicación, de la cual obtendremos una url pública. Para desplegar nuestra apliación deberemos ejecutar el siguiente comando:
+heroku container:push web -a <nombre>
+
+donde <nombre> es el subdominio de la url generada en el paso anterior. La imagen de Docker se subirá al registro y ya podemos desplegarla con el comando
+heroku container:release web -a <nombre>
+
+¡Voilà! Nuestra API está desplegada y tenemos acceso a través de la url generada. Puedes probar a navegar a la documentación (recuerda el endpoint /docs que hemos visto antes) y probar tu modelo.
+Resumen
+En este post hemos visto como podemos crear una API en Python para servir nuestro modelo. Para ello hemos usado FastAPI, un framewrok con buen rendimiento y multitud de funcionalidad incluida. Hemos usado Docker para paquetizar nuestro modelo, código de la API y todas sus dependencias de manera que sea facilmente desplegable. Por último, hemos usado Heroku para subir nuestra API a la nube y obtener una url pública. Con esta url cualquier persona o aplicación puede acceder a nuestro modelo, enviando imágenes y recibiendo las predicciones.

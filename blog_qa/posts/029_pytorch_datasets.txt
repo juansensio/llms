@@ -1,0 +1,390 @@
+
+Pytorch - Datasets
+En los posts anteriores hemos introducido los conceptos fundamentales de la librería de Deep Learning Pytorch y también hemos visto la funcionalidad que nos ofrece a la hora de diseñar y entrenar redes neuronales. En este post nos enfocamos en la herramientas que la librería nos da a la hora definir nuestros datasets.
+import torch
+
+Iterando tensores
+En los posts anteriores hemos utilizado el dataset MNIST para ilustrar los diferentes ejemplos que hemos visto. Vamos a seguir con este caso. A continuación tenemos una implementación en la que iteramos por los datos de manera explícita para entrenar nuestra red.
+from sklearn.datasets import fetch_openml
+import numpy as np
+
+# descarga datos
+
+mnist = fetch_openml('mnist_784', version=1)
+X, Y = mnist["data"], mnist["target"]
+
+X_train, X_test, y_train, y_test = X[:60000] / 255., X[60000:] / 255., Y[:60000].astype(np.int), Y[60000:].astype(np.int)
+
+X_t = torch.from_numpy(X_train).float().cuda()
+Y_t = torch.from_numpy(y_train).long().cuda()
+
+from sklearn.metrics import accuracy_score
+
+def softmax(x):
+    return torch.exp(x) / torch.exp(x).sum(axis=-1,keepdims=True)
+
+def evaluate(x):
+    model.eval()
+    y_pred = model(x)
+    y_probas = softmax(y_pred)
+    return torch.argmax(y_probas, axis=1)
+
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 100
+log_each = 10
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    # forward
+    y_pred = model(X_t)
+
+    # loss
+    loss = criterion(y_pred, Y_t)
+    l.append(loss.item())
+    
+    # ponemos a cero los gradientes
+    optimizer.zero_grad()
+
+    # Backprop (calculamos todos los gradientes automáticamente)
+    loss.backward()
+
+    # update de los pesos
+    optimizer.step()
+    
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 10/100 Loss 1.86759
+Epoch 20/100 Loss 1.50102
+Epoch 30/100 Loss 1.20334
+Epoch 40/100 Loss 1.02917
+Epoch 50/100 Loss 0.89791
+Epoch 60/100 Loss 0.80771
+Epoch 70/100 Loss 0.73555
+Epoch 80/100 Loss 0.67983
+Epoch 90/100 Loss 0.63525
+Epoch 100/100 Loss 0.59748
+
+
+
+
+
+0.9319
+
+Iterando por Batches
+En la implementación anterior estamos optimizando nuestro modelo con el algoritmo de batch gradient descent, en el que utilizamos todos nuestros datos en cada paso de optimización. Sin embargo, un algoritmo que puede converger más rápido (y única opción si nuestro dataset es tan grande que no cabe en memoria) es el de mini-batch gradient descent (el cual hemos ya utilizado en posts anteriores).
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 10
+batch_size = 100
+log_each = 1
+l = []
+model.train()
+batches = len(X_t) // batch_size
+for e in range(1, epochs+1): 
+    
+    _l = []
+    # iteramos por batches
+    for b in range(batches):
+        x_b = X_t[b*batch_size:(b+1)*batch_size]
+        y_b = Y_t[b*batch_size:(b+1)*batch_size]
+        
+        # forward
+        y_pred = model(x_b)
+
+        # loss
+        loss = criterion(y_pred, y_b)
+        _l.append(loss.item())
+
+        # ponemos a cero los gradientes
+        optimizer.zero_grad()
+
+        # Backprop (calculamos todos los gradientes automáticamente)
+        loss.backward()
+
+        # update de los pesos
+        optimizer.step()
+    
+    l.append(np.mean(_l))
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 1/10 Loss 0.31293
+Epoch 2/10 Loss 0.22047
+Epoch 3/10 Loss 0.17743
+Epoch 4/10 Loss 0.15066
+Epoch 5/10 Loss 0.13168
+Epoch 6/10 Loss 0.11724
+Epoch 7/10 Loss 0.10579
+Epoch 8/10 Loss 0.09652
+Epoch 9/10 Loss 0.08866
+Epoch 10/10 Loss 0.08187
+
+
+
+
+
+0.974
+
+Si bien esta implementación es correcta y funcional, dependiendo de nuestros datos puede llegar a complicarse mucho (por ejemplo, si necesitamos cargar muchas imágenes a las cuales queremos aplicar transformaciones, juntar en batches, etc...). Además, es común reutilizar la lógica para cargar nuestros datos no sólo para entrenar la red, si no para generar predicciones. Este hecho motiva el uso de las clases especiales que Pytorch nos ofrece para ello.
+La clase Dataset
+La primera clase que tenemos que conocer es la clase Dataset. Esta clase hereda de la clase madre torch.utils.data.Dataset y tenemos que definir, como mínimo, tres funciones: 
+
+__init__: el constructor
+__len__: devuelve el número de muestras en el dataset
+__getitem__: devuelve una muestra en concreto del dataset
+
+Una vez definida la clase, ésta puede usarse como si de cualquier iterador se tratase.
+# clase Dataset, hereda de la clase `torch.utils.data.Dataset`
+class Dataset(torch.utils.data.Dataset):
+    # constructor
+    def __init__(self, X, Y):
+        self.X = torch.from_numpy(X).float().cuda()
+        self.Y = torch.from_numpy(Y).long().cuda()
+    # devolvemos el número de datos en el dataset
+    def __len__(self):
+        return len(self.X)
+    # devolvemos el elemento `ix` del dataset
+    def __getitem__(self, ix):
+        return self.X[ix], self.Y[ix]
+
+Una vez definida la clase, podemos instanciar un objeto que podemos usar para iterar por nuestros datos.
+dataset = Dataset(X_train, y_train)
+
+len(dataset)
+
+60000
+
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 10
+batch_size = 100
+log_each = 1
+l = []
+model.train()
+batches = len(dataset) // batch_size
+for e in range(1, epochs+1): 
+    
+    _l = []
+    # iteramos por batches en el dataset
+    for b in range(batches):
+        x_b, y_b = dataset[b*batch_size:(b+1)*batch_size]
+        
+        # forward
+        y_pred = model(x_b)
+
+        # loss
+        loss = criterion(y_pred, y_b)
+        _l.append(loss.item())
+
+        # ponemos a cero los gradientes
+        optimizer.zero_grad()
+
+        # Backprop (calculamos todos los gradientes automáticamente)
+        loss.backward()
+
+        # update de los pesos
+        optimizer.step()
+    
+    l.append(np.mean(_l))
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 1/10 Loss 0.31120
+Epoch 2/10 Loss 0.21811
+Epoch 3/10 Loss 0.17516
+Epoch 4/10 Loss 0.14884
+Epoch 5/10 Loss 0.13032
+Epoch 6/10 Loss 0.11630
+Epoch 7/10 Loss 0.10512
+Epoch 8/10 Loss 0.09593
+Epoch 9/10 Loss 0.08819
+Epoch 10/10 Loss 0.08158
+
+
+
+
+
+0.9715
+
+Podemos iterar directamente sobre el objeto dataset de la misma manera que hacíamos anteriormente, sin embargo Pytorch no ofrece otro objeto que nos facilita las cosas a la hora de iterar por batches.
+La clase DataLoader
+La clase DataLoader recibe un Dataset e implementa la lógica para iterar nuestros datos en batches.
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=100, shuffle=True)
+
+x, y = next(iter(dataloader))
+
+x.shape, y.shape
+
+(torch.Size([100, 784]), torch.Size([100]))
+
+También permite mezclar los datos al principio de cada epoch con el parámetro shuffle, de manera automática carga nuestros datos de manera optimizada utilizando varios cores de nuestra CPU si es posible, etc.
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 10
+log_each = 1
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    _l = []
+    # iteramos por batches en el dataloader
+    for x_b, y_b in dataloader:
+        
+        # forward
+        y_pred = model(x_b)
+
+        # loss
+        loss = criterion(y_pred, y_b)
+        _l.append(loss.item())
+
+        # ponemos a cero los gradientes
+        optimizer.zero_grad()
+
+        # Backprop (calculamos todos los gradientes automáticamente)
+        loss.backward()
+
+        # update de los pesos
+        optimizer.step()
+    
+    l.append(np.mean(_l))
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 1/10 Loss 0.30657
+Epoch 2/10 Loss 0.21561
+Epoch 3/10 Loss 0.17338
+Epoch 4/10 Loss 0.14780
+Epoch 5/10 Loss 0.13006
+Epoch 6/10 Loss 0.11645
+Epoch 7/10 Loss 0.10595
+Epoch 8/10 Loss 0.09697
+Epoch 9/10 Loss 0.08949
+Epoch 10/10 Loss 0.08299
+
+
+
+
+
+0.9777
+
+También permite definir nuestra propia lógica para crear los batches, algo que puede ser útil en ciertas ocasiones.
+def collate_fn(batch):
+    return torch.stack([x for x, y in batch]), torch.stack([y for x, y in batch]), torch.stack([2.*x for x, y in batch])
+
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=100, shuffle=True, collate_fn=collate_fn)
+
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 10
+log_each = 1
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    _l = []
+    # iteramos por batches en el dataloader
+    # no usamos x2_b, sólo es para ver un ejemplo
+    for x_b, y_b, x2_b in dataloader:
+        
+        # forward
+        y_pred = model(x_b)
+
+        # loss
+        loss = criterion(y_pred, y_b)
+        _l.append(loss.item())
+
+        # ponemos a cero los gradientes
+        optimizer.zero_grad()
+
+        # Backprop (calculamos todos los gradientes automáticamente)
+        loss.backward()
+
+        # update de los pesos
+        optimizer.step()
+    
+    l.append(np.mean(_l))
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 1/10 Loss 0.29201
+Epoch 2/10 Loss 0.20428
+Epoch 3/10 Loss 0.16514
+Epoch 4/10 Loss 0.14113
+Epoch 5/10 Loss 0.12428
+Epoch 6/10 Loss 0.11146
+Epoch 7/10 Loss 0.10123
+Epoch 8/10 Loss 0.09286
+Epoch 9/10 Loss 0.08564
+Epoch 10/10 Loss 0.07947
+
+
+
+
+
+0.9746
+
+Resumen
+En este post hemos visto diferentes maneras en las que podemos iterar por nuestros datos para entrenar un modelo en Pytorch. Si nuestro dataset es sencillo y podemos representarlo como un simple array de NumPy podemos iterar directamente el array, transformándolo previamente en un tensor. Sin embargo, cuando nuestro dataset sea más grande y no quepa en memoria o necesite cierto pre-proceso o transformaciones, es muy conveniente utilizar las clases que Pytorch nos ofrece para ello. Estas clases son, principalmente, el Dataset y el DataLoader, las cuales nos van a permitir iterar por nuestros datos de manera eficiente y generar batches de forma sencilla (además de otras funcionalidades como mezclar los datos al principio de cada epoch, cargar datos en paralelo, etc).

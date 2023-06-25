@@ -1,0 +1,268 @@
+
+Clases
+En el post anterior hablamos sobre funciones, una manera que tenemos para organizar nuestro código permitiendo su reutilización y robustez. Una función admite una serie de argumentos que utilizará para llevar a cabo una tarea determinada y, opcionalmente, devolver un resultado. En muchas ocasiones, esta aproximación es suficiente. Sin embargo, en otras ocasiones, necesitaremos un extra de funcionalidad que conseguiremos usando una clase. Como ya vimos anteriormente, en Python todo son objetos. La mayoría de estos objetos tienen métodos y atributos. Los métodos son funciones asociadas a un objeto en particular que nos van a permitir interactuar con sus atributos, otros objetos asicioados al objeto principal. Al definir una clase seremos capaces de crear nuestros propios objetos, con sus métodos y atributos. Además, gracias a la herencia seremos capaces de definir nuevos objetos a partir de otros aprovechando sus mètodos y atributos y añadiendo aquello que sea necesario en cada momento. Así pues, el uso de clases extiende la idea de reutilización y robustez de código que vimos en las funciones añadiendo un extra de funcionalidad.
+Definición de Clases
+Podemos crear una clase de la siguiente manera:
+class MiClase:
+    a = "hola"
+    
+    def func(self):
+        print(self.a)
+
+De la misma manera que para definir una función usamos la palabra def, para definir una clase usamos la palabra class seguida por el nombre de la clase (en el ejemplo MiClase pero puedes usar el nombre que quieras). Dentro de la clase, usando indentación, definimos el atributo a y el método func. Para instanciar un objeto de nuestra clase simplemente creamos una nueva variable que llame la clase.
+x = MiClase()
+
+Ahora, x es un objeto del tipo MiClase y por lo tanto tiene acceso a todos sus métodos y atributos. Para acceder a ellos usamos la siguiente nomenclatura.
+x.a
+
+'hola'
+
+x.func()
+
+hola
+
+
+⚠️ Fíjate que en la función func pasamos como primer argumento self, y para utilizar la variable a accedemos a ella como self.a. Esta es la manera que tenemos en Python para acceder a los diferentes métodos y atributos de un objeto desde cualquier método.
+
+Python es un lenguaje muy flexible y nos permite añadir nuevos métodos o atributos (o modificar los ya existentes) a cualquier objeto.
+# modificamos un atributo
+
+x.a = "hello"
+x.a
+
+'hello'
+
+# añadimos un nuevo atributo
+
+x.b = "hola"
+x.b
+
+'hola'
+
+Es importante remarcar que el añadir nuevos métodos o atributos a un objeto no los añadirá en la definición de la clase original.
+y = MiClase()
+
+# el atributo `b` no existe
+y.b
+
+---------------------------------------------------------------------------
+
+AttributeError                            Traceback (most recent call last)
+
+<ipython-input-7-f64f348aaab1> in <module>
+      2 
+      3 # el atributo `b` no existe
+----> 4 y.b
+
+
+AttributeError: 'MiClase' object has no attribute 'b'
+
+El constructor
+Cada vez que creemos un nuevo objeto de nuestra clase tendremos el mismo valor para el atributo a. Sin embargo, es muy común utilizar una misma clase con diferentes valores para el mismo atributo. Para ello podemos pasarle los valores con los que queremos inicializar nuestro objeto a través del constructor.
+class MiClase:
+    
+    # Constructor
+    def __init__(self, a):
+        self.a = a
+    
+    def func(self):
+        print(self.a)
+
+x = MiClase("hola")
+y = MiClase("hello")
+
+x.func()
+
+hola
+
+y.func()
+
+hello
+
+
+⚠️ El constructor de una clase siempre se define mediante la función __init__(self, argumentos).
+
+Sobrecarga de operadores
+Imagina que queremos sumar dos números. En Python es tan fácil como.
+x = 1
+y = 2
+
+x + y
+
+3
+
+¿Podemos hacer lo mismo con nuestra clase?
+x = MiClase(1)
+y = MiClase(2)
+
+x + y
+
+---------------------------------------------------------------------------
+
+TypeError                                 Traceback (most recent call last)
+
+<ipython-input-13-9c40486136a8> in <module>
+      2 y = MiClase(2)
+      3 
+----> 4 x + y
+
+
+TypeError: unsupported operand type(s) for +: 'MiClase' and 'MiClase'
+
+La respuesta es no, y el motivo es que nuestra clase no tiene definido el método suma. Podemos definirlo de la siguiente manera
+class MiClase:
+    
+    # Constructor
+    def __init__(self, a):
+        self.a = a
+    
+    # sobrecarga suma
+    def __add__(self, other):
+        return self.a + other.a
+    
+    def func(self):
+        print(self.a)
+
+x = MiClase(1)
+y = MiClase(2)
+
+x + y
+
+3
+
+Al definir el método __add__ ahora nuestra clase soporta el operador suma. Esto se conoce como sobrecarga de operadores y es especialmente útil cuando hacemos análisis de datos, ya que podremos trabajar con nuestras clases como si lo hiciésemos con cualquier otro objeto de Python de manera transparente. Podemos sobrecargar prácticamente todos los operadores, aquí puedes encontrar una lista.
+class MiClase:
+    
+    # Constructor
+    def __init__(self, a):
+        self.a = a
+    
+    # sobrecarga suma
+    def __add__(self, other):
+        return self.a + other.a
+    
+    # sobrecarga string (controlamos lo que se ve al hacer un `print` de nuestro objeto)
+    def __str__(self):
+        return f'El valor de `a` es {self.a}' 
+    
+    def func(self):
+        print(self.a)
+
+x = MiClase(1.56)
+
+print(x)
+
+El valor de `a` es 1.56
+
+Podemos utilizar esta sobrecarga de operadores para definir clases que puedan ser iterables (de forma análoga a los generadores que vimos en el post anterior).
+class MiIterador:
+    
+    # Constructor
+    def __init__(self, n):
+        self.items = [i for i in range(n)]
+    
+    # longitud del iterador
+    def __len__(self):
+        return len(self.items)
+    
+    # devolver valores al indexar nuestro iterador
+    def __getitem__(self, ix):
+        return self.items[ix]
+
+x = MiIterador(5)
+
+len(x)
+
+5
+
+for i in x:
+    print(i)
+
+0
+1
+2
+3
+4
+
+De esta manera podremos definir toda la lógica necesaria para cargar un dataset, que puede incluir cualquier número o tipos de transformaciones, y a la vez iterar sobre él como si fuese una simple lista.
+El operador  __call__
+De entre los diferentes operadores que podemos sobrecargar, el operador __call__ es muy interesante ya que nos va a permitir llamar a nuestro objeto como si de una función se tratase.
+class MiClase:
+    
+    def __init__(self, a):
+        self.a = a
+    
+    def __call__(self, exp):
+        return self.a**exp
+
+x = MiClase(2)
+
+# podemos usar nuestro objeto como una función
+x(3)
+
+8
+
+Este patrón es muy utilizado en las diferentes librerías de análisis de datos, machine learning y deep learning que iremos viendo más adelante.
+Herencia
+Hablamos de herencia para referirnos al proceso de crear nuevas clases a partir de otras. Estas nuevas clases heredarán los métodos y atributos de sus clases progenitoras a la vez que nos permitirán añadir nueva funcionalidad.  
+class MiAlgoritmoBase:
+    a = 1    
+    def __call__(self):
+        return 2*self.a
+
+class MiAlgoritmo(MiAlgoritmoBase):
+    
+    def __init__(self, b):
+        self.b = b
+    
+    def __call__(self):
+        # el atributo `a` viene de la clase madre
+        return 2*self.a + self.b
+
+x = MiAlgoritmoBase()
+
+x()
+
+2
+
+x = MiAlgoritmo(2)
+
+x()
+
+4
+
+En el ejemplo anterior podemos ver una clase llamada MiAlgoritmoBase. Después, utilizamos esta clase para crear la nueva clase MiAlgoritmo. Como puedes ver, para crear la clase mediante herencia pasamos el nombre de la clase madre entre paréntesis en la definición de la nueva clase. La nueva clase ahora tiene acceso a todos los métodos y atributos de la clase madre. Por otro lado, sobreescribimos la función __call__ por lo que al llamar a esta función en la nueva clase no llamamos a la función original de la clase madre, si no a la función de la nueva clase. 
+
+⚡ Como puedes ver el mecanismo de herencia es muy potente, permitiéndonos crear nuestro código poco a poco, encapsulando funcionalidad reutilizable en clases y creando nuevas clases de manera progresiva. Esta es la base de la Programación Orientada a Objetos, un paradigma de programación muy utilizado.
+
+Herencia múltiple
+Podemos crear una nueva clase a partir de varias clases progenitoras de la siguiente manera
+class MiAlgoritmoBase:    
+    a = 1    
+    def __call__(self):
+        return 2*self.a
+    
+class MiOtroAlgoritmoBase:    
+    b = 2    
+    def __call__(self):
+        return -2*self.b
+    
+class MiAlgoritmo(MiAlgoritmoBase, MiOtroAlgoritmoBase):
+    
+    # constructor
+    def __init__(self, c):
+        self.c = c
+    
+    def __call__(self):
+        # los atributos `a` y `b` vienen de las clases progenitoras
+        return (self.a + self.b)*self.c
+
+x = MiAlgoritmo(3)
+
+x()
+
+9
+
+En la nueva clase tenemos acceso a todos los mètodos y atributs de todas las clases progenitoras, añadiendo nuevas funciones o sobreescribiendo las ya existentes.
+Resumen
+En este post hemos visto como definir clases en Python, un recurso muy útil a la hora de encapsular funcionalidad en un solo objeto con el que podemos interactuar como lo hacemos con el resto de objetos básicos que Python nos ofrece. La mayoría de algoritmos y estructuras de datos que usaremos de ahora en adelante están definidos como clases de Python, con las que podremos interactuar mediante sus métodosy atributos. Gracias a la sobrecarga de operadores podremos utilizar los operadores más comunes con nuestros propios objetos y también nos permitirán crear iteradores. Por último hemos hablado de herencia, un mecanismo que nos permite crear nuevas clases a partir de otras conservando los diferentes métodosy atributos de las clases progenitoras en la nueva clase, añadiendo o sobreescribiendo lo necesario para crear la nueva funcionalidad.

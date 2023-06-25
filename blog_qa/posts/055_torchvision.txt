@@ -1,0 +1,297 @@
+
+Torchvision
+En posts anteriores hemos visto diferentes aspectos de la librería de redes neuronales Pytorch. Sin embargo, existen otras herramientas dentro del mismo ecosistema que utilizan las características fundamentales de Pytorch para construir por encima soluciones enfocadas a campos de aplicación concretos. Entre estas librerías podemos encontrar torchvision, para aplicaciones de visión artificial, torchtext, para aplicaciones de procesamiento de lenguaje, torchaudio, para aplicaciones en las que procesemos sonido, y muchas otras. Estas librerías contienen modelos, datasets y otras operaciones comunes para cada aplicación. De hecho, ya hemos utilizado algunas de estas librerías en posts anteriores. En este post veremos en detalle los aspectos más interesantes de la librería torchvision.
+import torch
+import torchvision
+
+Datasets
+El primer recurso que podemos aprovechar de la librería torchvision es su amplio abanico de conjuntos de datos, listos para ser utilizados. Entre estos datasets encontramos algunos tan comunes como MNIST, CIFAR10 o Imagenet para clasificación de imágenes, pero también tenemos datasets para otras tareas, como la detección de objetos o la segmentación semántica.
+
+⚡ Encuentra la lista completa de datasets aquí
+
+Veamos un ejemplo de cómo descargar el dataset CIFAR10.
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True)
+
+Como puedes ver, las imágenes se descargarán automáticamente con la opción download=True. También puedes descargar conjuntos de entrenamiento o de test con la opción train.
+testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True)
+
+import random
+import matplotlib.pyplot as plt
+
+r, c = 3, 5
+fig = plt.figure(figsize=(2*c, 2*r))
+for _r in range(r):
+    for _c in range(c):
+        ax = plt.subplot(r, c, _r*c + _c + 1)
+        ix = random.randint(0, len(trainset))
+        img, label = trainset[ix]
+        plt.axis("off")
+        plt.imshow(img)
+plt.tight_layout()
+plt.show()
+
+
+De esta forma tan sencilla puedes descargar cualquier otro de los datasets en torchvision, los cuales puedes utilizar como cualquier otro objeto de tipo Dataset de Pytorch como los que utilizamos en otros posts.
+Transformaciones
+Una de las técnicas de regularización más utilizadas a la hora de entrenar redes neuronales para tareas de visión artificial es el data augmentation. Torchvision nos ofrece un gran conjunto de transformaciones que podemos utilizar de la siguiente manera.
+trainset = torchvision.datasets.CIFAR10(
+    root='./data',
+    train=True,
+    download=True,
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+)
+
+Puedes concatenar transformaciones pasando una lista de transformaciones a la clase Compose, la cual aplicará una transformación tras otra. En este caso, convertimos la imagen a un tensor de tipo float con valores entre 0 y 1 y moviendo la dimensión de los canales al principio (requisito para entrenar redes convolucionales). Después, la normalizamos con una valor medio de 0.5 y una desviación típica de 0.5, obteniendo tensores entre -1 y 1. De esta manera, nuestro dataset ya está listo para alimentar una red convolucional.
+img, label = trainset[0]
+img.dtype, img.shape, img.max(), img.min()
+
+(torch.float32, torch.Size([3, 32, 32]), tensor(1.), tensor(-1.))
+
+De la misma manera, podemos asignar transformaciones aleatorias que nos darán una versión diferente de una misma imagen cada vez que se la pidamos al dataset.
+trainset = torchvision.datasets.CIFAR10(
+    root='./data',
+    train=True,
+    download=True,
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.RandomCrop((28,28)),
+        torchvision.transforms.Resize((32,32)),
+        torchvision.transforms.RandomHorizontalFlip(),
+        # ...
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+)
+
+Files already downloaded and verified
+
+r, c = 3, 5
+fig = plt.figure(figsize=(2*c, 2*r))
+for _r in range(r):
+    for _c in range(c):
+        ax = plt.subplot(r, c, _r*c + _c + 1)
+        ix = 10
+        img, label = trainset[ix]
+        plt.axis("off")
+        # desnormalizar
+        img = img*0.5 + 0.5
+        img = img.permute(1, 2, 0)
+        plt.imshow(img)
+plt.tight_layout()
+plt.show()
+
+
+Modelos
+Una de las características más interesantes de la librería torchvision es el gran listado de modelos que nos ofrece. Estos modelos contienen implementaciones de redes convolucionales populares tales como Resnet, Mobilenet, VGG... Todas listas para ser utilizadas y con la posibilidad de descargar sus pesos pre-entrenados en el dataset Imagenet para hacer transfer learning.
+
+⚡ Puedes encontrar un listado de los modelos disponibles aquí
+
+Vamos a ver un ejemplo de cómo descargar una red neuronal utilizando torchvision.
+resnet = torchvision.models.resnet18()
+
+Una vez descargada la red, podemos inspeccionar todas sus capas.
+resnet
+
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=1000, bias=True)
+)
+
+Para descargar la red pre-entrenada, es tan sencillo como
+resnet = torchvision.models.resnet18(pretrained=True)
+
+Una práctica muy común a la hora de entrenar redes convolucionales es descargar un modelo ya entrenado y modificarlo para ajustarlo a nuestra tarea en particular. Por ejemplo, si queremos utilizar la red resnet18 para clasificar imágenes del dataset CIFAR10 obtendremos resultados no deseados ya que la red original fue entrenada para 1000 clases, mientras que CIFAR10 solo tiene 10.
+Para adaptar la red, podemos simplemente sustituir la última capa de la siguiente manera.
+num_classes = 10
+resnet.fc = torch.nn.Linear(resnet.fc.in_features, num_classes)
+resnet
+
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=10, bias=True)
+)
+
+img, label = trainset[ix]
+# simulamos un batch de 3 imágenes
+batch = torch.stack([img, img, img])
+y = resnet(batch)
+y.shape
+
+torch.Size([3, 10])
+
+De la misma manera, podemos descargar cualquier modelo disponible y adaptarlo para nuestro caso o utilizarlo como componente en un sistema más complejo.
+Operaciones
+Por último, torchvision nos ofrece algunas operaciones comunes en aplicaciones de visión artificial. Algunos ejemplos, que ya hemos usado en posts anteriores, son: calcular la métrica IoU, el algoritmo de NMS, componentes que encontramos en algunas arquitecturas como RoIAlign o FeaturePyramidNetwork, entre otros.
+En el siguiente ejemplo definimos dos conjuntos de cajas y calculamos el IoU de todas las combinaciones.
+# x_min, y_min, x_max, y_max
+box1 = torch.tensor([[0, 0, 1, 1], [0, 0, 0.5, 0.5]])
+box2 = torch.tensor([[0, 0, 1, 1], [0.5, 0.5, 1, 1]])
+torchvision.ops.box_iou(box1, box2)
+
+tensor([[1.0000, 0.2500],
+        [0.2500, 0.0000]])
+
+Resumen
+En este post hemos visto las diferentes posibilidades que nos ofrece la librería torchvision a la hora de llevar a cabo tareas de visión artificial. Construyendo sobre la funcionalidad básica de Pytorch, esta librería nos ofrece datasets comunes, modelos pre-entrenados, transformaciones y operaciones útiles a la hora de entrenar redes convolucionales para tareas de visión por computador.

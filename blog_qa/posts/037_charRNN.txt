@@ -1,0 +1,428 @@
+
+Generación de texto
+En este post vamos a entrenar una red neuronal recurrente para generar texto, carácter a carácter, inspirado en CharRNN. Nuestra red neuronal recibirá como entrada una secuencia de letras y deberá dar como salida la siguiente letra (la cual añadiremos a las entradas para volver a generar un nuevo carácter). 
+Los datos
+Lo primero que necesitamos para lograr nuestro objetivo es un conjunto de datos. En este caso, al querer generar texto, nos servirá con un archivo con mucho texto que queramos imitar. Para ello descargaremos Don Quijote de la Mancha, la obra principal del escritor Miguel de Cervantes y una de las más relevantes en la literatura castellana. 
+import wget
+
+wget.download('https://mymldatasets.s3.eu-de.cloud-object-storage.appdomain.cloud/el_quijote.txt')
+
+100% [..............................] 1060259 / 1060259
+
+
+
+
+'el_quijote (4).txt'
+
+f = open("el_quijote.txt", "r", encoding='utf-8')
+text = f.read()
+text[:300], len(text)
+
+('DON QUIJOTE DE LA MANCHA\nMiguel de Cervantes Saavedra\n\nPRIMERA PARTE\nCAPÍTULO 1: Que trata de la condición y ejercicio del famoso hidalgo D. Quijote de la Mancha\nEn un lugar de la Mancha, de cuyo nombre no quiero acordarme, no ha mucho tiempo que vivía un hidalgo de los de lanza en astillero, ada',
+ 1038397)
+
+Tenemos alrededor de 1 millón de carácteres en nuestro dataset, suficientes para generar texto de manera convincente como si fuésemos el manco de Lepanto.
+Tokenización
+Para poder darle este texto a nuestra red neuronal necesitamos transformarlo en números con los que podemos llevar a cabo las operaciones que tienen lugar en la red. Este proceso se conoce como tokenización. Existen muchas formas de llevar a cabo este proceso, en este caso simplemente sustituiremos cada carácter en nuestro texto por su posición en el siguiente vector de carácteres.
+import string
+
+all_characters = string.printable + "ñÑáÁéÉíÍóÓúÚ¿¡"
+all_characters
+
+'0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0cñÑáÁéÉíÍóÓúÚ¿¡'
+
+import string
+
+class Tokenizer(): 
+    
+  def __init__(self):
+    self.all_characters = all_characters
+    self.n_characters = len(self.all_characters)
+    
+  def text_to_seq(self, string):
+    seq = []
+    for c in range(len(string)):
+        try:
+            seq.append(self.all_characters.index(string[c]))
+        except:
+            continue
+    return seq
+
+  def seq_to_text(self, seq):
+    text = ''
+    for c in range(len(seq)):
+        text += self.all_characters[seq[c]]
+    return text
+
+tokenizer = Tokenizer()
+tokenizer.n_characters
+
+114
+
+El tokenizer puede convertir una secuencia de texto en números, y al revés.
+tokenizer.text_to_seq('señor, ¿qué tal?')
+
+[28, 14, 100, 24, 27, 73, 94, 112, 26, 30, 104, 94, 29, 10, 21, 82]
+
+tokenizer.seq_to_text([28, 14, 100, 24, 27, 73, 94, 112, 26, 30, 104, 94, 29, 10, 21, 82])
+
+'señor, ¿qué tal?'
+
+Ahora podemos tokenizar todo el texto.
+text_encoded = tokenizer.text_to_seq(text)
+
+
+💡 Pese a que podemos implementar nuestra lógica de tokenización para trabajar a nivel de carácteres, cuando trabajamos con palabras completas el proceso puede complicarse. Es por esto que existen muchas herramientas que ya implementan este tipo de procesado (y muchos otros) que podemos utilizar. Un ejemplo, especialmente integrado con Pytorch, es la librería torchtext.
+
+El Dataset
+En primer lugar, vamos a separar nuestro texto en un conjunto de entrenamiento y otro de test. Cómo ya hemos hablado en posts anteriores, usaremos los datos de entrenamiento para entrenar nuestra red neuronal y los datos de test para calcular las métricas finales.
+train_size = len(text_encoded) * 80 // 100 
+train = text_encoded[:train_size]
+test = text_encoded[train_size:]
+
+len(train), len(test)
+
+(814065, 203517)
+
+Para entrenar nuestra red, vamos a necesitar secuencias de texto de una longitud determinada. Podemos generar estas ventanas con la siguiente función
+import random
+
+def windows(text, window_size = 100):
+    start_index = 0
+    end_index = len(text) - window_size
+    text_windows = []
+    while start_index < end_index:
+      text_windows.append(text[start_index:start_index+window_size+1])
+      start_index += 1
+    return text_windows
+
+text_encoded_windows = windows(text_encoded)
+
+Como puedes ver, hemos generado un número determinado de frases con la longitud especificada las cuales empiezan cada vez un carácter más a la derecha.
+print(tokenizer.seq_to_text((text_encoded_windows[0])))
+print()
+print(tokenizer.seq_to_text((text_encoded_windows[1])))
+print()
+print(tokenizer.seq_to_text((text_encoded_windows[2])))
+
+DON QUIJOTE DE LA MANCHA
+Miguel de Cervantes Saavedra
+
+PRIMERA PARTE
+CAPITULO 1: Que trata de la cond
+
+ON QUIJOTE DE LA MANCHA
+Miguel de Cervantes Saavedra
+
+PRIMERA PARTE
+CAPITULO 1: Que trata de la condi
+
+N QUIJOTE DE LA MANCHA
+Miguel de Cervantes Saavedra
+
+PRIMERA PARTE
+CAPITULO 1: Que trata de la condic
+
+Nuestro dataset de Pytorch se encargará de darnos cada una de estas frases, utilizando todos los carácteres excepto el último como entradas para la red y el último carácter como la etiqueta que usaremos durante el entrenamiento (la red deberá predecir la siguiente letra).
+import torch
+
+class CharRNNDataset(torch.utils.data.Dataset):
+  def __init__(self, text_encoded_windows, train=True):
+    self.text = text_encoded_windows
+    self.train = train
+
+  def __len__(self):
+    return len(self.text)
+
+  def __getitem__(self, ix):
+    if self.train:
+      return torch.tensor(self.text[ix][:-1]), torch.tensor(self.text[ix][-1])
+    return torch.tensor(self.text[ix])
+
+train_text_encoded_windows = windows(train)
+test_text_encoded_windows = windows(test)
+
+dataset = {
+    'train': CharRNNDataset(train_text_encoded_windows),
+    'val': CharRNNDataset(test_text_encoded_windows)
+}
+
+dataloader = {
+    'train': torch.utils.data.DataLoader(dataset['train'], batch_size=512, shuffle=True, pin_memory=True),
+    'val': torch.utils.data.DataLoader(dataset['val'], batch_size=2048, shuffle=False, pin_memory=True),
+}
+
+len(dataset['train']), len(dataset['val'])
+
+(813965, 203417)
+
+input, output = dataset['train'][0]
+tokenizer.seq_to_text(input)
+
+'DON QUIJOTE DE LA MANCHA\nMiguel de Cervantes Saavedra\n\nPRIMERA PARTE\nCAPITULO 1: Que trata de la con'
+
+tokenizer.seq_to_text([output])
+
+'d'
+
+Embeddings
+Si bien hemos conseguido convertir nuestro texto a números, una red neuronal seguirá sin ser capaz de trabajar con nuestros datos ya que, como hemos visto en posts anteriores, éstos tienen que estar normalizados. Además, en función del tokenizador que utilicemos es posible que el  mismo carácter tenga asociados diferentes valores. Es por esto que necesitamos codificar nuestro texto de alguna manera. 
+Una opción puede ser el one-hot encoding, al fin y al cabo podemos considerar cada letra como una categoría y que nuestra red nos de a la salida una distribución de probabilidad sobre todos los posibles carácteres. A continuación tienes un ejemplo de este tipo de codificación (utilizando palabras en vez de letras).
+
+A nuestra red le daremos a la entrada un vector que representará cada elemento en el vocabulario. Este vector tendrá una longitud igual al número de elementos diferentes en el vocabulario, y estará lleno de ceros excepto por una posición (la posición que ocupe el elemento en concreto dentro del vocabulario, la lista de elementos únicos). En nuestro caso podríamos optar por esta alternativa, ya que apenas tenemos un centenar de carácteres diferentes. Sin embargo, cuando trabajemos con palabras, nuestros vocabularios serán enormes (¿cuántas palabras hay en el diccionario?). Esto implica que trabajar con una codificación one-hot será muy costoso (vectores muy grandes) e ineficiente (prácticamente llenos de ceros). Es por esto que utilizamos una mejor codificación: los embeddings
+
+Un embedding es una matriz con un número de filas igual al tamaño del vocabulario y un número de columnas que nosotros decidiremos. Cada fila en la matriz representará la codificación de una palabara (o carácter en nuestro ejemplo). A diferencia de la codificación one-hot, estos vectores son densos (pueden tener valores diferentes de cero en cualquier posición). Además, estos valores son aprendidos por la red neuronal, de manera que podrá representar los datos de la mejor forma posible para llevar a cabo la tarea. En la figura anterior tienes un ejemplo de un embedding entrenado, ¿observas algún patrón?. Efectivamente, palabras similares tienen representaciones similares. Además, cada columna del embedding tiene un significado que permite establecer relaciones entre las diferentes representaciones.
+
+⚡ ¿Qué resultado obtienes al restar el vector boy al vector man y sumarle el vector girl?
+
+En Pytorch tenemos esta capa implementada en la clase torch.nn.Embedding, y más adelante veremos como podemos utilizar transfer learning con embeddings pre-entrenados (lo cual nos dará una mejor representación de nuestro vocabulario desde el principio sin tener que entrenar esta capa).
+class CharRNN(torch.nn.Module):
+  def __init__(self, input_size, embedding_size=128, hidden_size=256, num_layers=2, dropout=0.2):
+    super().__init__()
+    self.encoder = torch.nn.Embedding(input_size, embedding_size)
+    self.rnn = torch.nn.LSTM(input_size=embedding_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, batch_first=True)
+    self.fc = torch.nn.Linear(hidden_size, input_size)
+
+  def forward(self, x):
+    x = self.encoder(x)
+    x, h = self.rnn(x)         
+    y = self.fc(x[:,-1,:])
+    return y
+
+Nuestro modelo recibirá batches de frases con el índice de cada palabra que nos proporciona el tokenizador. A la salida tendremos una distribución de probabilidad sobre todos los posibles carácteres para cada frase del batch. Aquellos con mayor probabilidad serán los que la red cree que son buenos candidatos para seguir la frase recibida a la entrada.
+model = CharRNN(input_size=tokenizer.n_characters)
+outputs = model(torch.randint(0, tokenizer.n_characters, (64, 50)))
+outputs.shape
+
+torch.Size([64, 114])
+
+Entrenamiento
+from tqdm import tqdm
+import numpy as np
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def fit(model, dataloader, epochs=10):
+    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = torch.nn.CrossEntropyLoss()
+    for epoch in range(1, epochs+1):
+        model.train()
+        train_loss = []
+        bar = tqdm(dataloader['train'])
+        for batch in bar:
+            X, y = batch
+            X, y = X.to(device), y.to(device)
+            optimizer.zero_grad()
+            y_hat = model(X)
+            loss = criterion(y_hat, y)
+            loss.backward()
+            optimizer.step()
+            train_loss.append(loss.item())
+            bar.set_description(f"loss {np.mean(train_loss):.5f}")
+        bar = tqdm(dataloader['val'])
+        val_loss = []
+        with torch.no_grad():
+            for batch in bar:
+                X, y = batch
+                X, y = X.to(device), y.to(device)
+                y_hat = model(X)
+                loss = criterion(y_hat, y)
+                val_loss.append(loss.item())
+                bar.set_description(f"val_loss {np.mean(val_loss):.5f}")
+        print(f"Epoch {epoch}/{epochs} loss {np.mean(train_loss):.5f} val_loss {np.mean(val_loss):.5f}")
+
+def predict(model, X):
+    model.eval() 
+    with torch.no_grad():
+        X = torch.tensor(X).to(device)
+        pred = model(X.unsqueeze(0))
+        return pred
+
+model = CharRNN(input_size=tokenizer.n_characters)
+fit(model, dataloader, epochs=20)
+
+loss 1.85239: 100%|█| 1590/1590 [02:46<00:00,  9.52it/s
+val_loss 1.62366: 100%|█| 100/100 [00:15<00:00,  6.66it
+loss 1.79230:   0%|   | 1/1590 [00:00<03:37,  7.30it/s]
+
+Epoch 1/20 loss 1.85239 val_loss 1.62366
+
+
+loss 1.50522: 100%|█| 1590/1590 [02:46<00:00,  9.56it/s
+val_loss 1.48657: 100%|█| 100/100 [00:14<00:00,  6.81it
+loss 1.48531:   0%|   | 1/1590 [00:00<03:32,  7.46it/s]
+
+Epoch 2/20 loss 1.50522 val_loss 1.48657
+
+
+loss 1.40319: 100%|█| 1590/1590 [03:01<00:00,  8.78it/s
+val_loss 1.43002: 100%|█| 100/100 [00:15<00:00,  6.44it
+loss 1.37566:   0%|   | 1/1590 [00:00<03:47,  6.99it/s]
+
+Epoch 3/20 loss 1.40319 val_loss 1.43002
+
+
+loss 1.34723: 100%|█| 1590/1590 [03:03<00:00,  8.68it/s
+val_loss 1.39181: 100%|█| 100/100 [00:16<00:00,  6.18it
+loss 1.36070:   0%|   | 1/1590 [00:00<04:11,  6.33it/s]
+
+Epoch 4/20 loss 1.34723 val_loss 1.39181
+
+
+loss 1.30879: 100%|█| 1590/1590 [03:01<00:00,  8.75it/s
+val_loss 1.36630: 100%|█| 100/100 [00:16<00:00,  6.17it
+loss 1.28499:   0%|   | 1/1590 [00:00<04:14,  6.25it/s]
+
+Epoch 5/20 loss 1.30879 val_loss 1.36630
+
+
+loss 1.28048: 100%|█| 1590/1590 [03:03<00:00,  8.69it/s
+val_loss 1.34562: 100%|█| 100/100 [00:15<00:00,  6.49it
+loss 1.17361:   0%|   | 1/1590 [00:00<03:50,  6.90it/s]
+
+Epoch 6/20 loss 1.28048 val_loss 1.34562
+
+
+loss 1.25777: 100%|█| 1590/1590 [03:02<00:00,  8.73it/s
+val_loss 1.33271: 100%|█| 100/100 [00:15<00:00,  6.44it
+loss 1.18760:   0%|   | 1/1590 [00:00<03:53,  6.80it/s]
+
+Epoch 7/20 loss 1.25777 val_loss 1.33271
+
+
+loss 1.23965: 100%|█| 1590/1590 [03:02<00:00,  8.69it/s
+val_loss 1.32437: 100%|█| 100/100 [00:16<00:00,  6.21it
+loss 1.31383:   0%|   | 1/1590 [00:00<03:48,  6.94it/s]
+
+Epoch 8/20 loss 1.23965 val_loss 1.32437
+
+
+loss 1.22318: 100%|█| 1590/1590 [03:01<00:00,  8.74it/s
+val_loss 1.31585: 100%|█| 100/100 [00:16<00:00,  6.19it
+loss 1.19529:   0%|   | 1/1590 [00:00<03:53,  6.81it/s]
+
+Epoch 9/20 loss 1.22318 val_loss 1.31585
+
+
+loss 1.21024: 100%|█| 1590/1590 [03:02<00:00,  8.70it/s
+val_loss 1.31078: 100%|█| 100/100 [00:15<00:00,  6.46it
+loss 1.11020:   0%|   | 1/1590 [00:00<03:58,  6.67it/s]
+
+Epoch 10/20 loss 1.21024 val_loss 1.31078
+
+
+loss 1.19737: 100%|█| 1590/1590 [03:02<00:00,  8.73it/s
+val_loss 1.30124: 100%|█| 100/100 [00:15<00:00,  6.56it
+loss 1.24845:   0%|   | 1/1590 [00:00<03:51,  6.85it/s]
+
+Epoch 11/20 loss 1.19737 val_loss 1.30124
+
+
+loss 1.18631: 100%|█| 1590/1590 [03:01<00:00,  8.75it/s
+val_loss 1.29958: 100%|█| 100/100 [00:16<00:00,  6.20it
+loss 1.24495:   0%|   | 1/1590 [00:00<03:58,  6.67it/s]
+
+Epoch 12/20 loss 1.18631 val_loss 1.29958
+
+
+loss 1.17666: 100%|█| 1590/1590 [03:01<00:00,  8.74it/s
+val_loss 1.29400: 100%|█| 100/100 [00:16<00:00,  6.22it
+loss 1.16455:   0%|   | 1/1590 [00:00<03:51,  6.85it/s]
+
+Epoch 13/20 loss 1.17666 val_loss 1.29400
+
+
+loss 1.16661: 100%|█| 1590/1590 [03:01<00:00,  8.78it/s
+val_loss 1.29198: 100%|█| 100/100 [00:16<00:00,  6.21it
+loss 1.18190:   0%|   | 1/1590 [00:00<03:50,  6.89it/s]
+
+Epoch 14/20 loss 1.16661 val_loss 1.29198
+
+
+loss 1.15902: 100%|█| 1590/1590 [03:02<00:00,  8.73it/s
+val_loss 1.29103: 100%|█| 100/100 [00:16<00:00,  6.17it
+loss 1.14946:   0%|   | 1/1590 [00:00<03:52,  6.82it/s]
+
+Epoch 15/20 loss 1.15902 val_loss 1.29103
+
+
+loss 1.15142: 100%|█| 1590/1590 [03:03<00:00,  8.68it/s
+val_loss 1.28255: 100%|█| 100/100 [00:15<00:00,  6.41it
+loss 1.14897:   0%|   | 1/1590 [00:00<03:50,  6.90it/s]
+
+Epoch 16/20 loss 1.15142 val_loss 1.28255
+
+
+loss 1.14457: 100%|█| 1590/1590 [03:02<00:00,  8.73it/s
+val_loss 1.28954: 100%|█| 100/100 [00:16<00:00,  6.19it
+loss 1.17853:   0%|           | 0/1590 [00:00<?, ?it/s]
+
+Epoch 17/20 loss 1.14457 val_loss 1.28954
+
+
+loss 1.13861: 100%|█| 1590/1590 [03:04<00:00,  8.63it/s
+val_loss 1.29195: 100%|█| 100/100 [00:16<00:00,  6.13it
+loss 1.09084:   0%|   | 1/1590 [00:00<03:45,  7.04it/s]
+
+Epoch 18/20 loss 1.13861 val_loss 1.29195
+
+
+loss 1.13250: 100%|█| 1590/1590 [03:02<00:00,  8.69it/s
+val_loss 1.28693: 100%|█| 100/100 [00:16<00:00,  6.15it
+loss 1.18249:   0%|   | 1/1590 [00:00<03:56,  6.71it/s]
+
+Epoch 19/20 loss 1.13250 val_loss 1.28693
+
+
+loss 1.12650: 100%|█| 1590/1590 [03:00<00:00,  8.79it/s
+val_loss 1.28557: 100%|█| 100/100 [00:15<00:00,  6.27it
+
+Epoch 20/20 loss 1.12650 val_loss 1.28557
+
+Generando texto
+Una vez hemos entrenado nuestro modelo, podemos darle una frase para que genere la siguiente letra.
+X_new = "En un lugar de la mancha, "
+X_new_encoded = tokenizer.text_to_seq(X_new)
+y_pred = predict(model, X_new_encoded)
+y_pred = torch.argmax(y_pred, axis=1)[0].item()
+tokenizer.seq_to_text([y_pred])
+
+'y'
+
+Podemos generar más letras añadiendo las predicciones como parte de la entrada, generando texto letra a letra.
+for i in range(100):
+  X_new_encoded = tokenizer.text_to_seq(X_new[-100:])
+  y_pred = predict(model, X_new_encoded)
+  y_pred = torch.argmax(y_pred, axis=1)[0].item()
+  X_new += tokenizer.seq_to_text([y_pred])
+
+X_new
+
+'En un lugar de la mancha, y el cura le dijo que el cura le habia de ser en la cabeza de la cabeza, y asi como lo habia de ser '
+
+Cómo puedes ver el text generado puede ser repetitivo si simplemente nos quedamos con la letra con mayor probabilidad. Para generar texto con mayor variedad, es común elegir de manera aleatoria una letra de entre las que tienen mayor probabilidad.
+temp=1
+for i in range(1000):
+  X_new_encoded = tokenizer.text_to_seq(X_new[-100:])
+  y_pred = predict(model, X_new_encoded)
+  y_pred = y_pred.view(-1).div(temp).exp()
+  top_i = torch.multinomial(y_pred, 1)[0]
+  predicted_char = tokenizer.all_characters[top_i]
+  X_new += predicted_char
+
+print(X_new)
+
+En un lugar de la mancha, y el cura le dijo que el cura le habia de ser en la cabeza de la cabeza, y asi como lo habia de ser hacer eso dejado y coda esperaba su llamando su vida; y dijole que luego el quiere de mayor mal caballero, donde se la habia de comedimiento de su historia. Digo, senor licenciado otro dia ser bendicion de que su hiciera, a todo lo que digo, o aquellas casas alli la honrada, por mi marido, el fin que encierra; y asi, es Lotario a tierra de la galera de su milagro de su escudero jardin, dijo Cardenio:
+-Y de ese mi doncella se la preguntada -respondio Dorotea-, que es verdad que yo no se le trasladado, y con la menor lugar tan caballero, y con el lugar donde se entrete despidio; y aun el pudo la luz que entrara como consideraba en dejarle, de quien se muebale; porque a no te ha de quitar el arriero a quien dejaron en la si, que el habia de mas lanzon de un muerto, de consejo con Sancho que las resolas con contra el cura, aunque el aspero para estas segurosos que se pueda dar en vida, y a mi senora Amadis a mi siento, sino por los palabras de la tierra de caballeria que despierta de que los moros le habia dicho, no quisieron la vida, y tiraba en mi sidisimuleza, y el cura y a otra cosa me habia muerto de grandisima diligencia, a los dias en el camino, estando del vencimiento grande soledad y costumbre, pueda sierra al mal de la esfrace y minaguda, y dejando esto tiempo, y diciendo:
+-Digamos despues de ser, porque no les dijo que eran conde el suelo le dijo: porque la contradecia y se fuese esto, porque con muchos tiempos de alegro a agua, por poco ni le dejase; pero yo quedo la vuelta en su favor de su carta alguna, debe de cuya que se acontecio a ser punto en viendo con el almorio, y que tuviese mucha prevecion de sus hambres que les veeia en ellas, porque de mi queria, por cerrarme de mi suerte, si no lo sola! Por al cuerpo sin dudas los mios de las memorias, que tiene bien traidor del vizcaino, y luego, dijo:
+-¿Que me parece que soy como el cura se convera que esta a su paciencia que me halle decir, nos pudo conservo sus ojos que los arzobios habia puesto. Ambas no lo haya en el mundo y senora de los que le dijo que el se hallo en la punta de la caballeria y de la caballeria andante, y que es mas de la venta, y el cura decia el caballo de las manos de su casa y de la mano a la cabeza de su padre, y asi como lo haria en la carta de la cabeza, y asi, como a la mano a los caballeros andantes y entrambos, y que el de la vida que se le habia de ser en el mismo que el se escuchaba en su cargo de la cabeza de la mano a caballo, de particular de la mano de los demas de la caballeria, y asi como despues de ser en aquella mano a su padre y de aquella manera, y asi como lo conocio que el la habia de ser en la caballeria que aquella desengano estaba en la mano de los dias de la pena que el la conocieron, y tan a su senora Dulcinea, y que el se le pusiese de la vida, y la venta de su mano a la primera alma que le habia de dar a su escudero, porque si es mas de su amo que se le parecio que a ella se le hacia la cabeza de la cabeza, y la primera senora Dulcinea del Toboso de Dolenterosamente, yo, simple, honito nunca y le pusio las secretas; y si ellos soso!, puesto que os jayase la verdad vuestra merced a aquel diablo.
+Fiendo hayera vivia para el pensamiento y sin premiosa simplicion.
+Tu quedase con el mismo carto de un tambien dijo:
+-Hizo corta bien de tu reino, que no pudo cuatro deshonrado, ni mi amo sa aprovinar de camino, cuando en este sean una yerba
+como no salia como las tristas razones, y hacer medio los de Luscinda, que podia ver, y a la mano, sin servir de aquellas gente con muchas lamificas sea; y marques de puede hayamos.
+Cuando dices, senores, si sas porfia, y aun lo hase dicho conmigo y hombre desventura que ella pudo eso, ¿areno en alguna veces, o no apumo a soy, fortunaba; y ¿que tuvieron media hecho por esta gran impesimo retado.
+-Asi esto respondio el cabrero-, dijo Dorotea, que hablase la causa hija con sus sierras, que ellos le dejase de cualquieras ellos de las muchas gerraciones que yo bien, volvio a quien no estaban de
+
+Resumen
+En este post hemos aprendido cómo implementar y entrenar una red neuronal recurrente para generar texto como si fuese Miguel de Cervantes. Para ello hemos utilizado su libro Don Quijote de la Mancha como dataset. En primer lugar, transformamos el texto en números gracias al proceso de la tokenización. Después, codificamos cada carácter en el dataset utilizando una capa embedding, que permitirá a la red neuronal encontrar la mejor representación posible de los datos para llevar a cabo su tarea. Para generar texto, le pedimos a la red que nos de una distribución de probabilidad sobre todos los posible carácteres a partir de una frase que le damos a la entrada. Utilizaremos esta distribución para seleccionar un carácter que siga con la frase de manera convincente. Podemos repetir este proceso para generar secuencias más largas.

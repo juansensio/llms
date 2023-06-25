@@ -1,0 +1,182 @@
+
+La Terminal - Manejo de Datos
+Este post estará enfocado en el manejo de datos a través de la terminal. Esto significa convertir cualquier conjunto de datos (imágenes, texto, etc) de un formato a otro (no sólo convertir una imagen de jpg a png, por ejemplo, sino también extraer información de fuentes de datos, estadísticos, etc). En posts anteriores ya vimos algún ejemplo de manejo de datos, al usar el operador | para usar la salida de un programa como entrada de otro y así procesar los datos de manera consecutiva para obtener el resultado deseado.
+Fuente de datos
+Lo primero que necesitamos para empezar es una fuente de datos, que puede ser texto, imágenes o cualquier otro tipo de datos binario. En nuestro caso, usaré el registro del sistema, o system log, de un servidor remoto al cual puedo acceder con el comando ssh harley journalctl. El comando ssh permite conectarse a servidores remotos, harley es el nombre de mi servidor (cuyas credenciales de acceso tengo configuradas en mi ordenador) y journalctl es el comando para recuperar el registro del sistema. Si ejecutas este comando obtendrás un error, ya que no tienes acceso a este servidor. Si quieres seguir el ejemplo puedes usar otra fuente de datos diferente.
+
+Este blog está basado en jupyter notebook y, cómo ya vimos en posts anteriores, podemos ejecutar comandos en notebooks usando el prefijo !. Si quieres probar estos comandos en tu terminal, recuerda quitar este símbolo del principio de cada línea.
+
+!ssh harley journalctl | head -n10
+
+-- Logs begin at Mon 2022-05-02 13:20:52 CEST, end at Wed 2022-08-31 12:09:41 CEST. --
+May 02 13:20:52 harley systemd[2243]: Started Pending report trigger for Ubuntu Report.
+May 02 13:20:52 harley systemd[2243]: Reached target Paths.
+May 02 13:20:52 harley systemd[2243]: Reached target Timers.
+May 02 13:20:52 harley systemd[2243]: Starting D-Bus User Message Bus Socket.
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG network certificate management daemon.
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent and passphrase cache (access for web browsers).
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent and passphrase cache (restricted).
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent and passphrase cache.
+
+Manejo de datos
+En nuestro ejemplo vamos a analizar el uso del servidor: cuántos usuarios se han conectado, con qué frecuencia, etc. Para ello vamos a utilizar varios comandos muy interesantes que deberías conocer para poder aplicar a tus casos de usos. ¡Empecemos!
+Primero, vamos a filtrar el registro del sistema para quedarnos con todas aquellas líneas que correspondan a conexiones al servidor. Esto lo conseguimos conectando el comando anterior al programa grep (que ya vimos en posts anteriores) de la manera siguiente:
+!ssh harley journalctl | grep ssh | head -n10
+
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:22:53 harley sshd[2442]: Received disconnect from 192.168.0.10 port 58506:11: disconnected by user
+May 02 13:22:53 harley sshd[2442]: Disconnected from user juan 192.168.0.10 port 58506
+May 02 13:23:03 harley systemd[2243]: gpg-agent-ssh.socket: Succeeded.
+May 02 13:23:03 harley systemd[2243]: Closed GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:30:34 harley systemd[3115]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:31:27 harley sshd[3222]: Received disconnect from 192.168.0.10 port 59396:11: disconnected by user
+May 02 13:31:27 harley sshd[3222]: Disconnected from user juan 192.168.0.10 port 59396
+May 02 13:31:38 harley systemd[3115]: gpg-agent-ssh.socket: Succeeded.
+May 02 13:31:38 harley systemd[3115]: Closed GnuPG cryptographic agent (ssh-agent emulation).
+^C
+
+En el ejemplo anterior, el servidor está enviándonos toda la información que luego procesamos en local. En ocasiones esto puede ser costoso, por lo que es recomendable ejecutar directamente en el servidor los comandos para el manejo de datos y devolver directamente los resultados.
+!ssh harley 'journalctl | grep ssh ' | head -n10
+
+May 02 13:20:52 harley systemd[2243]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:22:53 harley sshd[2442]: Received disconnect from 192.168.0.10 port 58506:11: disconnected by user
+May 02 13:22:53 harley sshd[2442]: Disconnected from user juan 192.168.0.10 port 58506
+May 02 13:23:03 harley systemd[2243]: gpg-agent-ssh.socket: Succeeded.
+May 02 13:23:03 harley systemd[2243]: Closed GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:30:34 harley systemd[3115]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+May 02 13:31:27 harley sshd[3222]: Received disconnect from 192.168.0.10 port 59396:11: disconnected by user
+May 02 13:31:27 harley sshd[3222]: Disconnected from user juan 192.168.0.10 port 59396
+May 02 13:31:38 harley systemd[3115]: gpg-agent-ssh.socket: Succeeded.
+May 02 13:31:38 harley systemd[3115]: Closed GnuPG cryptographic agent (ssh-agent emulation).
+
+Alternativamente, puedes copiarte el registro en tu máquina para posteriores procesados (en este caso, con solo aquellas líneas correspondientes a conexiones de usuarios).
+!ssh harley 'journalctl | grep ssh | grep "Disconnected from"' > ssh.log
+
+!cat ssh.log | head -n10
+
+May 02 13:22:53 harley sshd[2442]: Disconnected from user juan 192.168.0.10 port 58506
+May 02 13:31:27 harley sshd[3222]: Disconnected from user juan 192.168.0.10 port 59396
+May 02 13:36:01 harley sshd[3930]: Disconnected from user juan 192.168.0.10 port 59869
+May 02 15:36:56 harley sshd[6807]: Disconnected from user juan 192.168.0.10 port 54340
+May 02 15:36:58 harley sshd[6862]: Disconnected from user juan 192.168.0.10 port 54343
+May 02 15:37:01 harley sshd[6917]: Disconnected from user juan 192.168.0.10 port 54350
+May 02 15:37:01 harley sshd[6971]: Disconnected from user juan 192.168.0.10 port 54353
+May 02 15:37:02 harley sshd[7025]: Disconnected from user juan 192.168.0.10 port 54354
+May 02 15:37:15 harley sshd[7080]: Disconnected from user juan 192.168.0.10 port 54357
+May 02 15:44:25 harley sshd[3467]: Disconnected from user juan 192.168.0.10 port 55038
+cat: stdout: Broken pipe
+
+Como puedes ver tenemos el nombre de los usuarios, fechas de conexión y demás información en el registro. ¿Cómo podemos extraer esta información para su uso? La respuesta es el comando sed (stream editor) que nos permite editar el contenido del archivo.
+!cat ssh.log | sed 's/.*Disconnected from //' | head -n10
+
+user juan 192.168.0.10 port 58506
+user juan 192.168.0.10 port 59396
+user juan 192.168.0.10 port 59869
+user juan 192.168.0.10 port 54340
+user juan 192.168.0.10 port 54343
+user juan 192.168.0.10 port 54350
+user juan 192.168.0.10 port 54353
+user juan 192.168.0.10 port 54354
+user juan 192.168.0.10 port 54357
+user juan 192.168.0.10 port 55038
+sed: stdout: Broken pipe
+cat: stdout: Broken pipe
+
+Lo que hemos usado como argumento al comando sed se conoce como regular expression, o regex, una manera muy potente para encontrar patrones concretos de texto y hacer cosas con ellos. En este caso s/.*Disconnected from // sustituirá el resultado de evaluar la regex .*Disconnected from  por un espacio en blanco. Esta es una herramienta muy importante a la hora de manejar datos con la terminal, por lo que vamos a aprender un poco más sobre ella.
+Regular Expressions
+Empezando por el regex anterior, .*Disconnected from encontrará todo el texto que empiece por 0 o más caracteres seguidos de Disconnected from (el símbolo . significa cualquier carácter y *significa 0 o más). Existen otros símbolos, como + que significa 1 o más, o [] que permiten encontrar uno o varios caracteres.
+!echo abc | sed 's/[ab]//'
+
+bc
+
+Por defecto, la regex se usa una sola vez (el primer patrón que encuentra). Podemos usarlo para sustituir todas las ocurrencias de la manera siguiente
+!echo abc | sed 's/[ab]//g'
+
+c
+
+En los ejemplos anteriores, queríamos sustituir los caracteres a y b. Para sustituir la ocurrencia ab podemos usar (). Para que funcione deberemos usar la opción -E en sed que permite el uso de opciones más avanzadas con regex.
+!echo babac | sed -E 's/(ab)//'
+
+bac
+
+Podemos usar modificadores para encontrar diferentes variaciones.
+!echo babac | sed -E 's/(ab|ac)//g'
+
+b
+
+Vamos a aplicar estos conceptos para encontrar el nombre de usuario en el registro anterior. Para ello, podemos usar el siguiente comando
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | head -n10
+
+ juan
+ juan
+ juan
+ juan
+ juan
+ juan
+ juan
+ juan
+ juan
+ juan
+sed: stdout: Broken pipe
+cat: stdout: Broken pipe
+
+Los símbolos ^ y $ indican que el patrón debe coincidir con el inicio o final de la línea. Los grupos [0-9.]+ y [0-9]+ nos permiten encontrar grupos de números. Por último, podemos sustituir la línea por el nombre de usuario usando el primer grupo de captura, (.*), poniendo \3 en vez del valor vacío que usábamos antes (de manera similar puedes usar \1, \2, ..., para otros grupos de captura en tu regex).
+Como puedes ver, trabajar con regex se complica mucho rápidamente, por lo que es muy aconsejable probar y testear tus regex antes de usarlas en herramientas como https://regex101.com/.
+Análisis de datos
+Una vez hemos procesado nuestro registro y ya hemos extraído la información que queríamos, podemos seguir con el análisis para calcular estadísticos interesantes. Podemos empezar sabiendo cuantas entradas tenemos en el registro, para ello podemos usar el comando wc.
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | wc -l
+
+  390642
+
+Podemos también ordenar la lista de usuarios y encontrar los valores únicos con los comandos sort y uniq respectivamente.
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | tail -n10
+
+   1  zzidc123
+   3  zzk
+   3  zzkr
+   1  zzq
+   1  zzstat
+   2  zzw
+  29  zzy
+  30  zzz
+   5  zzzz
+  14  ~#$%^&*(),.;
+
+Y ahora reordenar la lista por ocurrencias, usando de nuevo sort con el argumento -nk1,1 para hacer una ordenación numérica en la primera columna.
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | sort -nk1,1 | tail -n10
+
+1210  git
+1652  ftpuser
+1675  oracle
+1824  postgres
+2628
+2771  ubuntu
+4843  user
+5726  test
+11244  admin
+205766  root
+
+Podemos generar una lista con los 10 usuarios más activos con el comando, que podemos usar para restringir permisos o cualquier cosa.
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | sort -nk1,1 | tail -n10 | awk '{print $2}' | paste -sd, -
+
+git,ftpuser,oracle,postgres,,ubuntu,user,test,admin,root
+
+Para ello hemos usado el comando awk, que permite editar texto en formato tabular (similar a sed pero para trabajar con columnas), y el comando paste, que permite junta varias líneas de texto en una sola con el delimitador indicado (en este caso, la coma). awk es un lenguaje de programación en sí mismo, que permite llevar a cabo multitud de tareas, por lo que te recomiendo que le eches un vistazo para hacerte una idea de las cosas que puedes hacer con este potente programa.
+Podemos calcular el número total de conexiones sumando todos los valores de la primera columna. Para ello podemos usar el comando bc
+!echo '1+2' | bc
+
+3
+
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | sort -nk1,1 | tail -n10 | awk '{print $1}' | paste -sd+ -
+
+1210+1652+1675+1824+2628+2771+4843+5726+11244+205766
+
+!cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | sort -nk1,1 | tail -n10 | awk '{print $1}' | paste -sd+ - | bc
+
+239339
+
+Y también hacer cálculos estadísticos o gráficas con programas que acepten entradas a través de la terminal, como R o gnuplot respectivamente. El siguiente comando genera el histograma de la figura: cat ssh.log | sed -E 's/^.*Disconnected from (invalid |authenticating )?(user)?(.* )?[0-9.]+ port [0-9]+( \[preauth\])?$/\3/' | sort | uniq -c | sort -nk1,1 | tail -n10 | gnuplot -p -e 'set boxwidth 0.5; plot "-" using 1:xtic(2) with boxes'
+
+Resumen
+En este post hemos visto algunos de los comandos más útiles que tenemos a nuestra disposición a la hora de manejar datos y procesarlos. Por el camino también hemos aprendido sobre expresiones regulares y su potencia a la hora de encontrar patrones de texto en grandes archivos. Si bien los ejemplos que hemos visto han sido con texto, también podemos trabajar con imágenes o estructuras de texto muy utilizadas como htmlo json. Sin embargo, si has estado atento a mis otros posts, verás que tenemos a nuestra disposición herramientas en el ecosistema Python para automatizar todas estas tareas de manera más sencilla y con mucha más funcionalidad. Aun así, está bien saber que podemos usar la terminal para hacer operaciones sencillas que podemos automatizar en funciones o scripts reutilizables.

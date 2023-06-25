@@ -1,0 +1,1020 @@
+
+Álgebra Lineal
+El álgebra lineal es una rama de las matemáticas utilizada en muchos campos de la ciencia y la ingeniería, incluyendo la Inteligencia Artificial. Un buen entendimiento de álgebra lineal es esencial para trabajar con la mayoría de algoritmos de Machine Learning, y sobretodo algoritmos de Deep Learning. En este post vamos a ver los conceptos de álgebra lineal más importante en el desarrollo de algoritmos de IA, omitiendo muchos conceptos interesantes pero no esenciales para nuestras aplicaciones.
+Objetos matemáticos
+En nuestro viaje por el apasionante mundo del desarrollo de algoritmos de IA nos encontraremos de manera recurrente con los siguientes objetos matemáticos.
+Escalares
+Un escalar es simplemente un número único, a diferencia de la mayoría del resto de objetos matemáticos estudiados en álgebra lineal que normalmente son colecciones de múltiples números. Suelen denotarse mediante letras en minúscula, por ejemplo cuando decimos que una red neuronal tiene un número 
+n
+
+
+
+
+
+
+ de neuronas estamos usando un valor escalar.
+# un valor escalar
+x = 1
+x
+
+1
+
+Vectores
+Un vector es una colección de números dispuestos en una secuencia. Podemos identificar cada elemento individual mediante su posición en la secuencia. Suelen denotarse mediante letras en minúscula y en negrita, por ejemplo 
+\mathbf{x}
+
+
+
+
+
+
+, mientras que cada elemento se denota con la misma letra que el vector, pero sin negrita y con un subíndice indicando su posición en el vector, por ejemplo 
+x_1
+
+
+
+
+
+
+
+
+ es el primer elemento en el vector 
+\mathbf{x}
+
+
+
+
+
+
+.
+
+ \mathbf{x} =  \begin{bmatrix}x_1 \\\ x_2 \\\ ... \\\ x_n \end{bmatrix} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# un vector
+
+import numpy as np
+
+x = np.array([1, 2, 3, 4])
+x
+
+array([1, 2, 3, 4])
+
+# primer valor
+
+x[0]
+
+1
+
+
+⚠️ Recuerda que en Python los índices de las diferentes estructuras de datos empiezan por el valor 0.
+
+Utilizaremos vectores para representar puntos en el espacio, secuencias de valores en series temporales, frases en las que cada elemento corresponde a una palabra, etc.
+Matrices
+Una matriz es un vector bidimensional, en el que cada elemento se identifica mediante dos índices en vez de uno. Suelen denotarse mediante letras en mayúscula y en negrita, por ejemplo 
+\mathbf{A}
+
+
+
+
+
+
+. Como en el caso de los vectores, cada elemento se identifica con la misma letra que la matriz, pero sin negrita y con dos subíndices indicando su posición en la matriz. Por ejemplo el valor 
+A_{1,1}
+
+
+
+
+
+
+
+
+
+
+
+
+
+ es el elemento en la primera fila y primera columna.
+
+ \mathbf{A} = \begin{bmatrix}A_{1,1}   A_{1,2} \\\  A_{2,1}  A_{2,2} \end{bmatrix} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# una matriz
+
+A = np.array([[1, 2], [3, 4]])
+A
+
+array([[1, 2],
+       [3, 4]])
+
+# primer valor
+
+A[0,0]
+
+1
+
+Utilizaremos matrices para representar imágenes en blanco y negro, los parámetros de una capa en una red neuronal, etc. En la siguiente imágen puedes ver un ejemplo de una imágen con un número 5, como puedes ver se trata de una matriz en la que cada elemento indica la intensidad de color para cada píxel.
+
+Tensores
+Un tensor es una secuencia de valores dispuesta en una malla regular con un número arbitrario de dimensiones. Podemos ver un escalar como un tensor con 0 dimensiones, un vector como un tensor de 1 dimensión y una matriz como un tensor de 2 dimensiones. Así pues, hablamos de tensores en general como la estructura de datos que engloba las estructuras vistas anteriormente y cualquier otra con mayor número de dimensiones.
+# un tensor de 3 dimensiones 
+# puedes interpretarlo como dos matrices
+
+A = np.array([[[1, 2], [3, 4]],[[1, 2], [3, 4]]])
+A
+
+array([[[1, 2],
+        [3, 4]],
+
+       [[1, 2],
+        [3, 4]]])
+
+Usaremos tensores de tres dimensiones para representar imágenes en color (canales RGB), tensores de cuatro dimensiones para representar vídeos (secuencia de imágenes en color), etc.
+Operaciones
+Una operación importante cuando trabajamos con matrices es la traspuesta. Consiste en intercambiar las filas por las columnas, y suele denotarse con el superíndice 
+(\cdot)^T
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+, por ejemplo 
+\mathbf{A}^T
+
+
+
+
+
+
+
+
+ es la matriz traspuesta de 
+\mathbf{A}
+
+
+
+
+
+
+.
+A = np.arange(10).reshape(2,5)
+A
+
+array([[0, 1, 2, 3, 4],
+       [5, 6, 7, 8, 9]])
+
+A.T
+
+array([[0, 5],
+       [1, 6],
+       [2, 7],
+       [3, 8],
+       [4, 9]])
+
+Un vector es una matriz de una sola columna, por lo que su transpuesta es simplemente una matriz con una fila con los mismos valores. En cuanto a un valor escalar, él mismo es su traspuesta.
+Podemos sumar matrices entre ellas siempre que tengan la misma forma, añadiendo cada elemento de manera independiente.
+A = np.random.randn(3,3)
+B = np.random.randn(3,3)
+
+A, B
+
+(array([[ 0.77118806,  0.45249998,  0.1112773 ],
+        [-0.06222387,  1.19502159, -1.15127518],
+        [-0.4967097 , -1.78173562, -0.84420913]]),
+ array([[ 1.3037305 , -1.70384225,  1.05900741],
+        [-0.68532767,  0.93490022, -0.08834303],
+        [ 0.53738436,  0.95441283, -1.27276809]]))
+
+A + B
+
+array([[ 2.07491856, -1.25134227,  1.17028471],
+       [-0.74755154,  2.12992181, -1.23961821],
+       [ 0.04067466, -0.82732278, -2.11697723]])
+
+
+⚡ Como vimos en un post anterior podemos saltarnos esta restricción al trabajar con NumPy gracias al broadcasting.
+
+Multiplicando matrices y vectores
+Una de las operaciones más importantes en álgebra lineal es la multiplicación de matrices. Para poder multiplicar dos matrices, 
+\mathbf{C} = \mathbf{A} \mathbf{B}
+
+
+
+
+
+
+
+
+
+
+
+
+, necesitamos que 
+\mathbf{A}
+
+
+
+
+
+
+ tenga el mismo número de columnas que filas tiene 
+\mathbf{B}
+
+
+
+
+
+
+. El resultado, 
+\mathbf{C}
+
+
+
+
+
+
+, será una matriz con el mismo número de filas que 
+\mathbf{A}
+
+
+
+
+
+
+ y el mismo número de columnas que 
+\mathbf{B}
+
+
+
+
+
+
+.
+A = np.array([[1,2,1],[0,1,0],[2,3,4]])
+B = np.array([[2,5],[6,7],[1,8]])
+
+A, B
+
+(array([[1, 2, 1],
+        [0, 1, 0],
+        [2, 3, 4]]),
+ array([[2, 5],
+        [6, 7],
+        [1, 8]]))
+
+C = A.dot(B)
+C
+
+array([[15, 27],
+       [ 6,  7],
+       [26, 63]])
+
+# notación alternativa
+
+C = A @ B
+C
+
+array([[15, 27],
+       [ 6,  7],
+       [26, 63]])
+
+C.shape
+
+(3, 2)
+
+Esta operación es distributiva, 
+\mathbf{A}(\mathbf{B}+\mathbf{C}) = \mathbf{A} \mathbf{B} + \mathbf{A} \mathbf{C}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+, y asociativa, 
+\mathbf{A}(\mathbf{B} \mathbf{C}) = (\mathbf{A} \mathbf{B}) \mathbf{C}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+, pero no commutativa, 
+\mathbf{A} \mathbf{B} \neq \mathbf{B} \mathbf{A}
+
+
+
+
+
+
+
+
+
+
+
+
+. Aquí tienes una visualización de la operación.
+
+Ten en cuenta que esta operación no es el resultado de multiplicar cada elemento de las matrices por separado. Este tipo de multiplicación se conoce como Hardamard product o element-wise product en inglés. En este caso ambas matrices deberán tener la misma forma.
+A = np.random.randn(2,2)
+B = np.random.randn(2,2)
+
+A, B
+
+(array([[ 1.20004714,  0.52895436],
+        [-0.59995887, -1.11127834]]),
+ array([[0.40829378, 0.85371561],
+        [0.6882631 , 2.45808383]]))
+
+# multiplicamos cada elemento de manera independiente
+
+A*B
+
+array([[ 0.48997178,  0.4515766 ],
+       [-0.41292955, -2.73161532]])
+
+Identidad y matriz inversa
+La matriz identidad es una matriz con 
+1
+
+
+
+
+
+
+ en todos los valores de su diagonal y 
+0
+
+
+
+
+
+
+ en el resto de valores.
+# matriz identidad
+
+I = np.eye(3)
+I
+
+array([[1., 0., 0.],
+       [0., 1., 0.],
+       [0., 0., 1.]])
+
+Esta matriz tiene la propiedad de no alterar ningún vector por el que se multiplique, y nos permite definir la matriz inversa como aquella matriz que cumple la condición 
+\mathbf{A}^{-1} \mathbf{A} = \mathbf{I}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+, donde 
+\mathbf{A}^{-1}
+
+
+
+
+
+
+
+
+
+
+
+
+ es la matriz inversa de 
+\mathbf{A}
+
+
+
+
+
+
+ y 
+\mathbf{I}
+
+
+
+
+
+
+ es la matriz identidad. Esta matriz inversa nos permite resolver sistemas de ecuaciones lineales de la forma 
+\mathbf{A} \mathbf{x} = \mathbf{b}
+
+
+
+
+
+
+
+
+
+
+
+
+, donde 
+\mathbf{A}
+
+
+
+
+
+
+ y 
+\mathbf{b}
+
+
+
+
+
+
+ son una matriz y un vector, respectivamente, de valores conocidos y 
+\mathbf{x}
+
+
+
+
+
+
+ es un vector de incógnitas. La solución a este sistema es 
+\mathbf{x} = \mathbf{A}^{-1} \mathbf{b}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+. El problema con la matriz inversa es que no siempre existe y, cuando lo hace, calcularla puede requerir de un tiempo de cálculo considerable, el cual aumenta con el tamaño de 
+\mathbf{A}
+
+
+
+
+
+
+ requiriendo de métodos alternativos de resolución en la gran mayoría de ocasiones.
+import numpy.linalg as linalg
+
+A = np.array([[1,2,3],[5,7,11],[21,29,31]])
+A
+
+array([[ 1,  2,  3],
+       [ 5,  7, 11],
+       [21, 29, 31]])
+
+linalg.inv(A)
+
+array([[-2.31818182,  0.56818182,  0.02272727],
+       [ 1.72727273, -0.72727273,  0.09090909],
+       [-0.04545455,  0.29545455, -0.06818182]])
+
+
+💡 Puedes encontrar toda la funcionalidad que ofrece NumPy para álgebra lineal en el paquete numpy.linalg.
+
+Podemos resolver el siguiente sistema de ecuaciones lineales
+
+2x + 6y = 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5x + 3y = -9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+de esta manera
+A  = np.array([[2, 6], [5, 3]])
+b = np.array([6, -9])
+
+x = linalg.inv(A).dot(b)
+x
+
+array([-3.,  2.])
+
+# comprobar solución
+
+A.dot(x) == b
+
+array([ True,  True])
+
+Ya que hemos reescrito el problema como 
+\mathbf{A} \mathbf{x} = \mathbf{b}
+
+
+
+
+
+
+
+
+
+
+
+
+, donde
+
+ \mathbf{A} =  \begin{bmatrix}2 \\, \\, 6 \\\  5 \\, \\, 3 \end{bmatrix} \\, \mathbf{x} = \begin{bmatrix}x \\\ y \end{bmatrix} \\, \mathbf{b} = \begin{bmatrix}6 \\\ -9 \end{bmatrix} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Un tipo especial de matriz es la matriz diagonal, con elementos diferentes de 
+0
+
+
+
+
+
+
+ en su diagonal y 
+0
+
+
+
+
+
+
+ en el resto de elementos (similar a la matriz identidad). Otros tipos de matrices interesantes son las matrices simétricas, matrices cuya traspuesta es ella misma, 
+\mathbf{A} = \mathbf{A}^{T}
+
+
+
+
+
+
+
+
+
+
+
+
+
+, y las matrices ortogonales, cuya inversa es igual a su traspuesta, 
+\mathbf{A}^{-1} = \mathbf{A}^{T}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+, muy interesante ya que en este caso calcular la inversa es una operación muy sencilla.
+Descomposición de matrices
+En álgebra lineal es muy común la descomposición de matrices en constituyentes más básicos independientes de su representación y que pueden darnos cierta información interesante. La descomposición más común es la descomposición en vectores propios, en la que una matriz se descompone en un conjunto de vectores y valores propios que cumplen la siguiente propiedad
+
+ \mathbf{A} \mathbf{v} = \lambda \mathbf{v} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+donde 
+\mathbf{v}
+
+
+
+
+
+
+ es un vector propio y 
+\lambda
+
+
+
+
+
+
+ su correspondiente valor propio. Juntando todos los vectores propios en una matriz 
+\mathbf{V}
+
+
+
+
+
+
+ y los valores propios en una matriz diagonal, 
+\mathbf{\Lambda}
+
+
+
+
+
+
+, vemos que 
+\mathbf{A} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^{-1}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.
+A = np.array([[1,2,3],[5,7,11],[21,29,31]])
+A
+
+array([[ 1,  2,  3],
+       [ 5,  7, 11],
+       [21, 29, 31]])
+
+L, V = linalg.eig(A)
+L, V
+
+(array([42.26600592, -0.35798416, -2.90802176]),
+ array([[-0.08381182, -0.76283526, -0.18913107],
+        [-0.3075286 ,  0.64133975, -0.6853186 ],
+        [-0.94784057, -0.08225377,  0.70325518]]))
+
+# primer vector/valor propio
+
+v, l = V[:,0], L[0]
+v, l
+
+(array([-0.08381182, -0.3075286 , -0.94784057]), 42.2660059241356)
+
+No todas las matrices pueden descomponerse de esta manera, pero cuando se puede esta descomposición nos da mucha información sobre la matriz útil para la derivación de propiedades interesantes para el desarrollo de algoritmos (como el signo de los valores propios).
+Otras propiedades
+Para terminar vamos a ver algunas otras propiedades interesantes de las matrices que pueden ser útiles. La diagonal de una matriz es el vector que contiene todos los elementos de la diagonal de una matriz.
+np.diag(A)
+
+array([ 1,  7, 31])
+
+La traza de una matriz es la suma de los elementos de su diagonal.
+np.trace(A)
+
+39
+
+El determinante de una matriz es una función que mapea matrices a valores escalares, y su valor absoluto nos da una idea de cuanto se expandirá o contraerá el espacio al multiplicar esa matriz.
+linalg.det(A)
+
+43.99999999999999
+
+Resumen
+En este post hemos visto los elementos más importantes del campo del álgebra lineal aplicados a la Inteligencia Artificial. De entre ellos, el saber trabajar con tensores (incluyendo vectores y matrices) y sus operaciones principales (sumas y multiplicaciones) es esencial en el desarrollo de Redes Neuronales. Otros algoritmos de Machine Learning también envuelven otras propiedades, como por ejemplo la descomposición de matrices (el algoritmo PCA puede derivarse directamente de la descomposición de una matriz en vectores propios). Si quieres aprender más sobre este campo, a continuación encontrarás varias referencias que pueden serte muy útiles.
+Referencias
+Libros
+
+The Matrix Cookbook (Petersen y Pedersen, 2006)
+Deep Learning (Goodfellow, Bengio y Courville, 2016)
+
+Cursos
+
+MIT, 2010
+FastAI
+
+Youtube
+
+3Blue1Brown
+
+Posts
+
+https://explained.ai/matrix-calculus/index.html
+

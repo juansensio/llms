@@ -1,0 +1,376 @@
+
+Python básico
+En el post anterior hablamos sobre Python y su aplicación al campo del análisis de datos. Aprendimos a instalarlo y vimos diferentes herramientas que podemos utilizar para trabajar con él, desde scripts en un editor de texto como VSCode hasta notebooks en Jupyter o Google Colab.
+En este post vamos a introducir la sintaxis básica de Python para entender conceptos esenciales de programación así como la mecánica del lenguaje. Python es un lenguaje diseñado con el objetivo de ser simple y explícito, asemejándose lo máximo posible al concepto de pseudocódigo.
+Objetos
+En Python cualquier número, cadena de caracteres (string), función, clase, módulo, etc, es considerado como un objeto, una "caja" con su propio tipo y datos internos que es tratada de la misma manera independientemente de su función. Este es uno de los motivos que hacen que Python sea un lenguaje tan flexible.
+Comentarios
+Podemos utilizar el símbolo # para incluir texto que no queremos que sea ejecutado, es decir, que sea ignorado por Python. Esto suele utilizarse para incluir comentarios en nuestro código, indicando la funcionalidad del mismo o cualquier aspecto que otra persona tenga que tener en cuenta si alguna vez se encuentra con nuestro programa.
+# esto es un comentario, Python ignorará esta línea
+
+Variables y referencias
+Cuando asignamos una variable en Python estamos creando una referencia al objeto de la derecha del símbolo =. Esto significa que cualquier cambio aplicado al objeto original se verá también reflejado en la nueva variable, a diferencia de lo que ocurriría si se crease una copia.
+a = [1, 2, 3]
+a
+
+[1, 2, 3]
+
+
+💡 En este ejemplo, la variable a es una lista, un tipo de estructura de datos que Python nos ofrece para almacenar objetos de manera secuencial. Hablaremos sobre listas (y otras estructuras de datos) más adelante.
+
+b = a
+b
+
+[1, 2, 3]
+
+a.append(4)
+a
+
+[1, 2, 3, 4]
+
+b
+
+[1, 2, 3, 4]
+
+Entender cuándo, cómo y por qué los datos son copiados o referenciados es importante, sobre todo cuando trabajamos con grandes datasets.
+Referencias dinámicas
+A diferencia de otros lenguajes, una variable en Python (al ser una referencia a otro objeto) no tiene ningún tipo asociado, toda la información está almacenada en el objeto original.
+a = 1
+a
+
+1
+
+a = "hola"
+a
+
+'hola'
+
+Podemos cambiar el objeto al que una variable hace referencia en cualquier momento. Podemos conocer el tipo del objeto al que una variable hace referencia con la función isinstance.
+# a es un número entero (int)
+
+a = 1
+isinstance(a, int)
+
+True
+
+# a no es un string (str)
+
+a = 1
+isinstance(a, str)
+
+False
+
+# a sí es un string (str)
+
+
+a = "hola"
+isinstance(a, str)
+
+True
+
+Métodos y atributos
+La mayoría de objetos en Python tienen métodos (funciones asociadas con el objeto) y atributos (otros objetos guardados en su interior). Por ejemplo, un objeto de tipo str tiene métodos para convertirlo a mayúsculas, separarlo en caracteres, etc.
+a = "hola"
+a.capitalize()
+
+'Hola'
+
+a.upper()
+
+'HOLA'
+
+Esto nos aporta una gran funcionalidad por defecto que podemos aprovechar y que de otra forma tendriamos que implementar nosotros mismos.
+Operadores binarios y comparación
+En Python tenemos disponibles prácticamente todos los operadores binarios que podemos esperar de cualquier lenguaje de programación
+# suma
+
+1 + 1
+
+2
+
+# resta
+
+2 - 1
+
+1
+
+# multiplicación
+
+2 * 3
+
+6
+
+# división
+
+1 / 2
+
+0.5
+
+# division entera
+
+3 // 2
+
+1
+
+# potenciación
+
+2**3
+
+8
+
+# operador AND (True si ambos operadores son True)
+
+True & False
+
+False
+
+# operador OR (True si alguno de los operadores es True)
+
+True | False
+
+True
+
+Lo mismo ocurre con los operadores de comparación
+# igualdad
+
+1 == 2
+
+False
+
+# desigualdad
+
+1 != 2
+
+True
+
+# menor que
+
+1 < 1
+
+False
+
+# menor o igual que
+
+1 <= 1
+
+True
+
+# mayor que
+
+3 > 2
+
+True
+
+# mayor o igual que
+
+2 >= 3
+
+False
+
+Tipos básicos
+En Python encontramos varios tipos por defecto
+# número decimal
+
+float
+
+float
+
+# número entero
+
+int
+
+int
+
+# número decimal
+
+a = 1.34
+
+# número entero
+
+b = 2
+
+# string
+
+str
+
+str
+
+Una de las características por las que Python brilla es su potencia a la hora de trabajar con strings.
+a = 'esto es una cadena de caracteres'
+b = "podemos usar comillas simples o dobles"
+c = """
+    Podemos hacer cadenas de múltiples líneas
+    con triples comillas (simples o dobles)
+"""
+
+La función print es muy útil para mostrar por consola un string.
+print(c)
+
+    Podemos hacer cadenas de múltiples líneas
+    con triples comillas (simples o dobles)
+
+Podemos transformar otros tipos de datos a string con la función str.
+a = 1.3
+b = str(a)
+b
+
+'1.3'
+
+Aunque la forma más versátil es utilizando string templates.
+c = f"el valor de 'a' es {a}"
+print(c)
+
+el valor de 'a' es 1.3
+
+# booleano
+
+bool
+
+bool
+
+Sólo existen dos valores booleanos: True y False.
+# cadena de bytes
+
+bytes
+
+bytes
+
+# valor inexistente
+
+None
+
+Control de flujo
+En Python podemos encontrar varias palabras reservadas para la lógica condicional, bucles y otros métodos de control de flujo.
+# if, elif, else
+
+x = 1
+
+if x < 0:
+    print("negativo")
+elif x == 0:
+    print("cero")
+else:
+    print("positivo")
+
+positivo
+
+
+⚠️ Para estructurar nuestro código con Python utilizamos indentación en vez de llaves como otros lenguajes de programación.
+
+Utilizamos bucles for para iterar sobre un iterador.
+# bucle for
+
+for i in range(3):
+    print(i)
+
+0
+1
+2
+
+
+💡 La función range nos devuelve un iterador sobre una secuencia consecutiva de números enteros.
+
+Podemos saltar al siguiente paso con la palabra continue.
+for i in range(5):
+    # si el número es impar, saltar al siguiente paso
+    # sin hacer el 'print'
+    if i % 2:
+        continue
+    print(i)
+
+0
+2
+4
+
+También podemos detener el bucle con la palabra break.
+for i in range(5):
+    # parar cuando lleguemos a 3
+    if i >= 3:
+        break
+    print(i)
+
+0
+1
+2
+
+Como en otros lenguajes, podemos usar un bucle while para ejectuar código siempre y cuando se cumpla una condición
+i = 0
+while i < 3:
+    print(i)
+    i = i + 1
+
+0
+1
+2
+
+Una funcionalidad que puede ahorrarnos varias líneas de código es el uso del operador ternario
+x = 1
+if x > 0:
+    a = x
+else:
+    a = 0
+a
+
+1
+
+# equivalente a la expresión anterior
+
+a = x if x > 0 else 0
+a
+
+1
+
+Módulos
+En Python cualquier archivo terminado en .py es considerado como un módulo y puede ser importado para tener acceso a su código.
+# importamos el módulo llamado `module`, que tiene el siguiente código dentro
+#
+# def f(x):
+#     return 2*x
+
+import module
+
+module.f(1)
+
+2
+
+
+⚠️ Hablaremos sobre funciones en próximos posts, de momento es necesario con que entiendas que la función f recibe una variable x y la devuelve, multiplicada por 2.
+
+Existen varias maneras de importar módulos, aquí tienes algunos ejemplos
+# podemos asignar un nuevo nombre al módulo
+
+import module as m
+
+m.f(2)
+
+4
+
+# podemos usar la función directamente,
+# sin usar el nombre del módulo
+
+from module import f
+
+f(3)
+
+6
+
+# podemos asignar un nuevo nombre a la función
+
+from module import f as mf
+
+mf(4)
+
+8
+
+# podemos importar todo lo que haya
+# en el módulo (no recomendado)
+
+from module import *
+
+f(5)
+
+10
+
+Próximos pasos
+Hasta aquí nuestro viaje explorando los conceptos básicos del lenguaje Python. Aquellos familiarizados con el mundo de la programación y que ya conozcan algún lenguaje encontrarán en Python una sintaxis familiar con la funcionalidad típica de cualquier lenguaje moderno. Tras un tiempo de uso verán que la simplicidad del lenguaje, la gran funcionalidad que ofrece por defecto y la gran cantidad de módulos existentes en el ecosistema le convertirán en un programador más productivo, capaz de expresar más con menos código. En cuanto a aquellos que no hayan programado nunca, encontrarán en Python un lenguaje sencillo de aprender y que les permitirá el desarrollo de programas interesantes sin tener que invertir cientos de horas practicando.
+En el siguiente post de esta serie hablaremos sobre las estructuras de datos que Python nos ofrece y que nos permitirán llevar a cabo tareas más interesantes.

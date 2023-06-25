@@ -1,0 +1,425 @@
+
+Pytorch - Redes Neuronales
+En el post anterior hicimos una introducción al framework de redes neuronales Pytorch. Hablamos de sus tres elementos fundamentales: el objeto tensor (similar al array de NumPy) autograd (que nos permite calcular derivadas de manera automáticas) y el soporte GPU. En este post vamos a entrar en detalle en la  funcionalidad que nos ofrece la librería para diseñar redes neuronales de manera flexible.
+import torch
+
+Modelos secuenciales
+La forma más sencilla de definir una red neuronal en Pytorch es utilizando la clase Sequentail. Esta clase nos permite definir una secuencia de capas, que se aplicarán de manera secuencial (las salidas de una capa serán la entrada de la siguiente). Ésto ya lo conocemos de posts anteriores, ya que es la forma ideal de definir un Perceptrón Multicapa.
+D_in, H, D_out = 784, 100, 10
+
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+)
+
+El modelo anterior es un MLP con 784 entradas, 100 neuronas en la capa oculta y 10 salidas. Podemos usar este modelo para hacer un clasificador de imágenes con el dataset MNIST. Pero primero, vamos a ver como podemos calcular las salidas del modelo a partir de unas entradas de ejemplo.
+outputs = model(torch.randn(64, 784))
+outputs.shape
+
+torch.Size([64, 10])
+
+Como puedes ver, simplemente le pasamos los inputs al modelo (llamándolo como una función). En este caso, usamos un tensor con 64 vectores de 784 valores. Es importante remarcar que los modelos de Pytorch (por lo general) siempre esperan que la primera dimensión sea la dimensión batch. Si queremos entrenar esta red en una GPU, es tan sencillo como
+model.to("cuda")
+
+Sequential(
+  (0): Linear(in_features=784, out_features=100, bias=True)
+  (1): ReLU()
+  (2): Linear(in_features=100, out_features=10, bias=True)
+)
+
+Vamos a ver ahora como entrenar este modelo con el dataset MNIST.
+from sklearn.datasets import fetch_openml
+
+# descarga datos
+
+mnist = fetch_openml('mnist_784', version=1)
+X, Y = mnist["data"], mnist["target"]
+
+X.shape, Y.shape
+
+((70000, 784), (70000,))
+
+import numpy as np
+
+# normalización y split
+
+X_train, X_test, y_train, y_test = X[:60000] / 255., X[60000:] / 255., Y[:60000].astype(np.int), Y[60000:].astype(np.int)
+
+# función de pérdida y derivada
+
+def softmax(x):
+    return torch.exp(x) / torch.exp(x).sum(axis=-1,keepdims=True)
+
+def cross_entropy(output, target):
+    logits = output[torch.arange(len(output)), target]
+    loss = - logits + torch.log(torch.sum(torch.exp(output), axis=-1))
+    loss = loss.mean()
+    return loss
+
+# convertimos datos a tensores y copiamos en gpu
+X_t = torch.from_numpy(X_train).float().cuda()
+Y_t = torch.from_numpy(y_train).long().cuda()
+
+# bucle entrenamiento
+epochs = 100
+lr = 0.8
+log_each = 10
+l = []
+for e in range(1, epochs+1): 
+    
+    # forward
+    y_pred = model(X_t)
+
+    # loss
+    loss = cross_entropy(y_pred, Y_t)
+    l.append(loss.item())
+    
+    # ponemos a cero los gradientes
+    model.zero_grad()
+
+    # Backprop (calculamos todos los gradientes automáticamente)
+    loss.backward()
+
+    # update de los pesos
+    with torch.no_grad():
+        for param in model.parameters():
+            param -= lr * param.grad
+    
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+
+Epoch 10/100 Loss 1.69351
+Epoch 20/100 Loss 1.30807
+Epoch 30/100 Loss 1.10386
+Epoch 40/100 Loss 0.94987
+Epoch 50/100 Loss 0.83626
+Epoch 60/100 Loss 0.76086
+Epoch 70/100 Loss 0.69918
+Epoch 80/100 Loss 0.64831
+Epoch 90/100 Loss 0.60683
+Epoch 100/100 Loss 0.57251
+
+Como puedes observar en el ejemplo, podemos calcular la salida del modelo con una simple línea. Luego calculamos la función de pérdida, y llamando a la función backward Pytorch se encarga de calcular las derivadas de la misma con respecto a todos los parámetros del modelo automáticamente (si no queremos acumular estos gradientes, nos aseguramos de llamar a la función zero_grad para ponerlos a cero antes de calcularlos). Por útlimo, podemos iterar por los parámetros del modelo aplicando la regla de actualización deseada (en este caso usamos descenso por gradiente).
+from sklearn.metrics import accuracy_score
+
+def evaluate(x):
+    model.eval()
+    y_pred = model(x)
+    y_probas = softmax(y_pred)
+    return torch.argmax(y_probas, axis=1)
+
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+0.9287
+
+Existen algunos tipos de capas que se comportan diferente en función de si estamos entrenando la red o usándola para generar predicciones. Podemos controlar el modo en el que queremos que esté nuestra red con las funciones train y eval.
+Optimizadores y Funciones de pérdida
+En el ejemplo anterior hemos calculado la función de pérdida y aplicado la regla de optimización de forma manual. Sin embargo, Pytorch nos ofrece funcionalidad que nos abstrae estos cálculos ofreciendo además flexibilidad para aplicar diferentes funciones de pérdida o algoritmos de optimización de manera sencilla. Podemos encontrar diferentes funciones de pérdida ya implementadas en el paquete torch.nn.
+criterion = torch.nn.CrossEntropyLoss()
+
+Mientras que los optimizadores se encuentran en el paquete torch.optim
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+Puedes ver la lista completa de funciones de pérdida y optimizadores disponibles en la documentación, aunque como ya has visto siempre puedes definir los tuyos propios fácilmente. 
+Una vez definidos estos dos objetos, nuestro bucle de entrenamiento se simplifica considerablemente.
+model = torch.nn.Sequential(
+    torch.nn.Linear(D_in, H),
+    torch.nn.ReLU(),
+    torch.nn.Linear(H, D_out),
+).to("cuda")
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 100
+log_each = 10
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    # forward
+    y_pred = model(X_t)
+
+    # loss
+    loss = criterion(y_pred, Y_t)
+    l.append(loss.item())
+    
+    # ponemos a cero los gradientes
+    optimizer.zero_grad()
+
+    # Backprop (calculamos todos los gradientes automáticamente)
+    loss.backward()
+
+    # update de los pesos
+    optimizer.step()
+    
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 10/100 Loss 1.73533
+Epoch 20/100 Loss 1.44922
+Epoch 30/100 Loss 1.19361
+Epoch 40/100 Loss 1.01541
+Epoch 50/100 Loss 0.88374
+Epoch 60/100 Loss 0.79568
+Epoch 70/100 Loss 0.72546
+Epoch 80/100 Loss 0.67048
+Epoch 90/100 Loss 0.62675
+Epoch 100/100 Loss 0.59003
+
+
+
+
+
+0.9307
+
+Modelos custom
+Si bien en muchos casos definir una red neuronal como una secuencia de capas es suficiente, en otros casos será un factor limitante. Un ejemplo son las redes residuales, en las que no sólo utilizamos la salida de una capa para alimentar la siguiente si no que, además, le sumamos su propia entrada. Este tipo de arquitectura no puede ser definida con la clase Sequential, y para ello necesitamos hacer un modelo customizado. Para ello, Pytroch nos ofrece la siguiente sintaxis.
+# creamos una clase que hereda de `torch.nn.Module`
+
+class Model(torch.nn.Module):
+    
+    # constructor
+    def __init__(self, D_in, H, D_out):
+        
+        # llamamos al constructor de la clase madre
+        super(Model, self).__init__()
+        
+        # definimos nuestras capas
+        self.fc1 = torch.nn.Linear(D_in, H)
+        self.relu = torch.nn.ReLU()
+        self.fc2 = torch.nn.Linear(H, D_out)
+        
+    # lógica para calcular las salidas de la red
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
+En primer lugar, necesitamos definir una nueva clase que herede de la clase torch.nn.Module. Esta clase madre aportará toda la funcionalidad esencial que necesita una red neuronal (soporte GPU, iterar por sus parámeteros, etc). Luego, en esta clase necesitamos definir mínimos dos funciones: 
+
+init: en el constructor llamaremos al constructor de la clase madre y después definiremos todas las capas que querramos usar en la red.
+forward: en esta función definimos toda la lógica que aplicaremos desde que recibimos los inputs hasta que devolvemos los outputs.
+
+En el ejemplo anterior simplemente hemos replicado la misma red (puedes conseguir el mismo efecto usando la clase Sequential).
+model = Model(784, 100, 10)
+outputs = model(torch.randn(64, 784))
+outputs.shape
+
+torch.Size([64, 10])
+
+Ahora, podemos entrenar nuestra red de la misma forma que lo hemos hecho anteriormente.
+model.to("cuda")
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.8)
+
+epochs = 100
+log_each = 10
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    # forward
+    y_pred = model(X_t)
+
+    # loss
+    loss = criterion(y_pred, Y_t)
+    l.append(loss.item())
+    
+    # ponemos a cero los gradientes
+    optimizer.zero_grad()
+
+    # Backprop (calculamos todos los gradientes automáticamente)
+    loss.backward()
+
+    # update de los pesos
+    optimizer.step()
+    
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 10/100 Loss 1.75033
+Epoch 20/100 Loss 1.53113
+Epoch 30/100 Loss 1.23926
+Epoch 40/100 Loss 1.07602
+Epoch 50/100 Loss 0.93399
+Epoch 60/100 Loss 0.83457
+Epoch 70/100 Loss 0.76513
+Epoch 80/100 Loss 0.70499
+Epoch 90/100 Loss 0.65649
+Epoch 100/100 Loss 0.61657
+
+
+
+
+
+0.9293
+
+Aquí puedes ver otro ejemplo de como definir un MLP con conexiones residuales, algo que no podemos hacer simplemente usando un modelo secuencial.
+class Model(torch.nn.Module):
+    
+    def __init__(self, D_in, H, D_out):        
+        super(Model, self).__init__()
+        self.fc1 = torch.nn.Linear(D_in, H)
+        self.relu = torch.nn.ReLU()
+        self.fc2 = torch.nn.Linear(H, D_out)
+        
+    def forward(self, x):
+        x1 = self.fc1(x)
+        x = self.relu(x1)
+        x = self.fc2(x + x1)
+        return x
+
+model = Model(784, 100, 10).to("cuda")
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.2)
+
+epochs = 100
+log_each = 10
+l = []
+model.train()
+for e in range(1, epochs+1): 
+    
+    # forward
+    y_pred = model(X_t)
+
+    # loss
+    loss = criterion(y_pred, Y_t)
+    l.append(loss.item())
+    
+    # ponemos a cero los gradientes
+    optimizer.zero_grad()
+
+    # Backprop (calculamos todos los gradientes automáticamente)
+    loss.backward()
+
+    # update de los pesos
+    optimizer.step()
+    
+    if not e % log_each:
+        print(f"Epoch {e}/{epochs} Loss {np.mean(l):.5f}")
+        
+y_pred = evaluate(torch.from_numpy(X_test).float().cuda())
+accuracy_score(y_test, y_pred.cpu().numpy())
+
+Epoch 10/100 Loss 1.57342
+Epoch 20/100 Loss 1.15138
+Epoch 30/100 Loss 0.94470
+Epoch 40/100 Loss 0.85307
+Epoch 50/100 Loss 0.76882
+Epoch 60/100 Loss 0.70635
+Epoch 70/100 Loss 0.65936
+Epoch 80/100 Loss 0.62309
+Epoch 90/100 Loss 0.59376
+Epoch 100/100 Loss 0.56882
+
+
+
+
+
+0.9095
+
+De esta manera, tenemos mucha flexibilidad para definir nuestras redes.
+Accediendo a las capas de una red
+En ocasiones queremos acceder a una capa en particular de nuestra red. Para ello, podemos acceder utilizando su nombre.
+model
+
+Model(
+  (fc1): Linear(in_features=784, out_features=100, bias=True)
+  (relu): ReLU()
+  (fc2): Linear(in_features=100, out_features=10, bias=True)
+)
+
+model.fc1
+
+Linear(in_features=784, out_features=100, bias=True)
+
+También podemos acceder directamente a los tensores que contienen los parámetros con las propiedades adecuadas
+model.fc1.weight
+
+Parameter containing:
+tensor([[ 0.0029, -0.0215, -0.0110,  ...,  0.0348, -0.0238, -0.0081],
+        [ 0.0171,  0.0233, -0.0315,  ...,  0.0112, -0.0152,  0.0066],
+        [-0.0265, -0.0118, -0.0075,  ...,  0.0246,  0.0155,  0.0062],
+        ...,
+        [ 0.0297, -0.0355, -0.0270,  ..., -0.0202,  0.0079, -0.0249],
+        [-0.0164, -0.0299,  0.0314,  ...,  0.0194, -0.0123,  0.0299],
+        [-0.0089,  0.0350, -0.0025,  ...,  0.0327, -0.0120, -0.0164]],
+       device='cuda:0', requires_grad=True)
+
+model.fc1.bias
+
+Parameter containing:
+tensor([ 2.2187e-02, -8.2160e-03,  2.9903e-02, -1.0438e-03,  7.4682e-02,
+         2.7915e-02, -3.9677e-03,  4.2768e-02, -3.5849e-02,  3.6787e-02,
+         1.5104e-02,  6.3822e-02,  2.6633e-02, -1.4095e-02,  6.6985e-02,
+        -7.9336e-03, -1.5754e-02,  5.4120e-03,  6.5085e-02,  1.5746e-02,
+        -2.7661e-02,  3.0811e-02, -1.8515e-03,  3.4789e-02, -4.4132e-02,
+        -4.0148e-02,  4.4946e-03, -3.4440e-02,  3.8096e-02,  2.1344e-02,
+         1.4570e-02, -1.1121e-02,  1.9649e-02,  3.0068e-02,  8.5368e-02,
+         1.9417e-02,  5.0194e-03,  3.2642e-04,  6.0476e-02, -1.6016e-02,
+        -1.4261e-02,  6.6606e-03,  2.9166e-02, -4.6675e-03, -1.6929e-02,
+         3.8950e-02,  9.8376e-03, -6.7311e-03,  3.3834e-02,  2.4839e-02,
+         7.6593e-02, -3.0738e-04, -2.5485e-03,  1.0964e-02, -4.2981e-05,
+        -5.2574e-02,  7.6428e-02,  6.3058e-03,  9.3170e-02,  1.2830e-02,
+        -6.7785e-02,  4.2172e-02, -6.2463e-03,  8.2696e-02,  3.2735e-02,
+        -3.4951e-02, -1.0727e-02,  2.9349e-03, -2.5734e-02,  1.4126e-02,
+        -2.4152e-02,  3.0017e-02,  7.0972e-02, -1.0930e-02,  2.2415e-02,
+        -4.8752e-02,  5.6876e-02,  5.8745e-02,  1.9831e-02, -5.0888e-02,
+         3.8216e-02,  2.0032e-02,  9.2722e-04,  4.2659e-03,  1.1564e-02,
+        -4.2885e-02,  7.3720e-02,  8.1139e-04, -6.2938e-02, -2.1837e-02,
+         1.8831e-02,  1.1775e-02,  1.2173e-02,  1.3842e-02, -2.1320e-02,
+         2.4222e-02, -2.9299e-02,  1.0384e-02,  1.6776e-02, -7.1942e-03],
+       device='cuda:0', requires_grad=True)
+
+Es posible sobreescribir una capa de la siguiente manera
+model.fc2 = torch.nn.Linear(100, 1)
+
+model
+
+Model(
+  (fc1): Linear(in_features=784, out_features=100, bias=True)
+  (relu): ReLU()
+  (fc2): Linear(in_features=100, out_features=1, bias=True)
+)
+
+Ahora, la capa final de nuestra red tiene solo una salida. Esta nueva capa ha sido inicializada de manera aleatoria, por lo que esta nueva red no nos va a servir de mucho. Sin embargo, podríamos volver a entrenar esta red en otro problema en el que solo necesitemos una salida aprovechando los pesos que ya hemos entrenado anteriormente con el dataset MNIST. Esto es la base del transfer learning, una técnica que utilizaremos muchísimo más adelante y la cual explicaremos en detalle.
+A continuación encontrarás varios trucos a la hora de crear redes neuronales a partir de otras que te pueden resultar útiles.
+# obtener una lista con las capas de una red
+
+list(model.children())
+
+[Linear(in_features=784, out_features=100, bias=True),
+ ReLU(),
+ Linear(in_features=100, out_features=1, bias=True)]
+
+# crear nueva red a partir de la lista (excluyendo las útlimas dos capa)
+
+new_model = torch.nn.Sequential(*list(model.children())[:-2])
+new_model
+
+Sequential(
+  (0): Linear(in_features=784, out_features=100, bias=True)
+)
+
+# crear nueva red a partir de la lista (excluyendo las útlima capa)
+
+new_model = torch.nn.ModuleList(list(model.children())[:-1])
+new_model
+
+ModuleList(
+  (0): Linear(in_features=784, out_features=100, bias=True)
+  (1): ReLU()
+)
+
+Resumen
+En este post hemos visto la funcionalidad que Pytorch nos ofrece a la hora de definir y entrenar nuestras redes neuronales. El paquete torch.nn contiene todo lo necesario para diseñar nuestros modelos, ya sea de manera secuencial o con una clase custom para arquitecturas más complicadas. También nos da muchas funciones de pérdida que podemos usar directamente para entrenar las redes. Te recomiendo encarecidamente que le eches un vistazo a la documentación par hacerte una idea de todo lo que puedes hacer. También hemos visto como el paquete torch.optim nos oferece algoritmos de optimización que también nos hacen la vida más fácil a la hora de entrenar nuestras redes. 

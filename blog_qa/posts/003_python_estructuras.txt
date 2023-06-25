@@ -1,0 +1,350 @@
+
+Estructuras de Datos en Python
+En este post vamos a ver los distintos tipos de estructuras de datos que podemos encontrar en Pythony que podemos aprovechar para nuestros proyectos. Librerías como Numpy o Pandas, de las cuales hablaremos más adelante, están diseñadas para aportar funcionalidad extra estas estructuras de datos. Las diferentes estructuras de las que hablaremos son: tuplas, listas, dicts y sets.
+Tuplas
+Una tupla es un objeto inmutable con una longitud fija. Un objeto es inmutable cuando no puede ser modificado, por lo que utilizar una tupla es una decisión para encapsular datos que no queremos que cambien. Para definir una tupla simplemente tenemos que definir una secuencia de valores separados por comas dentro de paréntesis.
+t = (1, 2, 3)
+t
+
+(1, 2, 3)
+
+Podemos acceder a los diferentes valores de nuestra tupla mediante su posición en la secuencia, su índice.
+t[0]
+
+1
+
+t[1]
+
+2
+
+
+⚠️ Para indexar un objeto en Python el prímer índice siempre es 0 y el último índice equivale a la longitud del objeto menos 1. Indexar un valor fuera de este rango nos dará un error.
+
+t[len(t)-1]
+
+3
+
+t[len(t)]
+
+---------------------------------------------------------------------------
+
+IndexError                                Traceback (most recent call last)
+
+<ipython-input-7-13d9f6c06c9f> in <module>
+----> 1 t[len(t)]
+
+
+IndexError: tuple index out of range
+
+Al ser una tupla un objeto inmutable, una vez creada no podremos cambiar ninguno de sus valores.
+t[0] = 4
+
+---------------------------------------------------------------------------
+
+TypeError                                 Traceback (most recent call last)
+
+<ipython-input-8-08a0409f2124> in <module>
+----> 1 t[0] = 4
+
+
+TypeError: 'tuple' object does not support item assignment
+
+Podemos aplicar ciertos operadores sobre una tupla, por ejemplo el operador suma permite concatenar varias tuplas mientras que el operador multiplicación nos permite repetir una tupla un número determinado de veces.
+t1 = (1, 2, 3)
+t2 = (4, 5, 6)
+
+t1 + t2
+
+(1, 2, 3, 4, 5, 6)
+
+t1*3
+
+(1, 2, 3, 1, 2, 3, 1, 2, 3)
+
+Podemos extraer todos los valores de una tupla de manera individual con el operador =.
+a, b, c = t1
+b
+
+2
+
+Este uso es muy común para extraer los diferentes valores devueltos por una función, algo de lo que hablaremos en otro post.
+En una tupla podemos incluir valores de diferente tipo.
+t = (1, "hola", True)
+t
+
+(1, 'hola', True)
+
+También podemos iterar por los diferentes valores de una tupla de la siguiente manera.
+for item in t:
+    print(item)
+
+1
+hola
+True
+
+Listas
+Una lista es un tipo de estructura de datos muy similar a la tupla, sin embargo es mutable por lo que sí que podremos modificar su longitud y contenido. Definimos una list mediante una secuencia de valores separados por comas entre corchetes.
+l = [1, 2, 3]
+l
+
+[1, 2, 3]
+
+Podemos utilizar los métodos del objeto lista para añadir o quitar elementos.
+# añade un elemento al final de la lista
+
+l.append(4)
+l
+
+[1, 2, 3, 4]
+
+# insertar un elemento en una posición determinada
+
+l.insert(2, 2.5)
+l
+
+[1, 2, 2.5, 3, 4]
+
+# quitar y devolver un elemento en una posición determinada
+
+l.pop(2)
+
+2.5
+
+l
+
+[1, 2, 3, 4]
+
+# quitar un elemento especificando su valor
+
+l.remove(3)
+l
+
+[1, 2, 4]
+
+Podemos utilizar operadores condicionales para saber si una lista contiene o no un elemento en particular.
+3 in l
+
+False
+
+3 not in l
+
+True
+
+De la misma manera que con una tupla podemos usar operadores para concatenar o repetir listas.
+l1 = [1, 2, 3]
+l2 = ["hola", "que", "tal"]
+
+l1 + l2
+
+[1, 2, 3, 'hola', 'que', 'tal']
+
+l1*3
+
+[1, 2, 3, 1, 2, 3, 1, 2, 3]
+
+Podemos acceder a un valor en particular mediante su índice.
+l = [1, 2, 3, 4]
+l[0]
+
+1
+
+También podemos seleccionar un subgrupo de valores dentro de la lista con los operadores de troceado.
+# devuelve los valores entre los ínideces 1 (inclusivo) y 3 (exclusivo)
+
+l[1:3]
+
+[2, 3]
+
+# devuelve los primeros dos valores
+
+l[:2]
+
+[1, 2]
+
+# devuelve todos los valores desde el índice 2 hasta el final
+
+l[2:]
+
+[3, 4]
+
+Podemos utilizar índices negativos para indexar de manera relativa al final de la lista.
+# devuelve el último valor
+
+l[-1]
+
+4
+
+# devuelve los últimos dos valores
+
+l[-2:]
+
+[3, 4]
+
+# devuelve todos los valores excepto los dos últimos
+
+l[:-2]
+
+[1, 2]
+
+Podemos utilizar un tercer argumento para definir un salto en el indexado.
+# devuelve todos los valores en saltos de dos
+
+l[::2]
+
+[1, 3]
+
+# invierte la lista
+
+l[::-1]
+
+[4, 3, 2, 1]
+
+Funciones secuenciales
+En Python existen varias funciones secuenciales que nos permiten iterar sobre secuencias.
+# itera manteniendo el índice y el valor
+
+for i, v in enumerate(l):
+    print(i, v)
+
+0 1
+1 2
+2 3
+3 4
+
+# itera varias listas a la vez
+
+for v1, v2 in zip(l1, l2):
+    print(v1, v2)
+
+1 hola
+2 que
+3 tal
+
+# itera una lista al revés
+
+for v in reversed(l):
+    print(v)
+
+4
+3
+2
+1
+
+Dict
+dict es probablemente la estructura de datos más importante en Python. También se le conoce por el nombre de hash map. Consiste en una colección de pares clave-valor dónde tanto la calve como el valor son objetos de Python. Definimos un dict mediante una secuencia de claves-valor entre llaves.
+d = {'a': 1, 'b': 2, 'c': 3}
+d
+
+    {'a': 1, 'b': 2, 'c': 3}
+
+Podemos insertar nuevos valores especificando la nueva clave y el nuevo valor de la siguiente manera.
+d['d'] = 4
+d
+
+    {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+
+Podemos comprobar si un dict contiene alguna clave en particular así
+'a' in d
+
+True
+
+'a' not in d
+
+False
+
+Podemos eliminar entradas en un dict con la palabra clave del.
+del d['d']
+d
+
+    {'a': 1, 'b': 2, 'c': 3}
+
+Podemos obtener una lista de todas las calves y valores de un dict con los métodos keys y values respectivamente.
+d.keys()
+
+dict_keys(['a', 'b', 'c'])
+
+d.values()
+
+dict_values([1, 2, 3])
+
+Podemos mezclar dos dicts con el método update.
+d2 = {'d': 4, 'e': 5}
+d.update(d2)
+d
+
+    {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5}
+
+En Python es muy común crear dicts a partir de listas.
+d = {}
+keys = ['a', 'b', 'c']
+values = [1, 2, 3]
+for k, v in zip(keys, values):
+    d[k] = v
+d
+
+    {'a': 1, 'b': 2, 'c': 3}
+
+Sets
+Un set es una colección no ordenada de objetos únicos, puede verse como un dict en el que sólo tenemos claves y no valores. Podemos crear un set mediante una secuencia de valores separados por comas entre llaves.
+s = {1, 2, 3}
+s
+
+{1, 2, 3}
+
+Tenemos diferentes métodos a nuestra disposición para trabajar con sets.
+# unión
+
+a = {1, 2, 3, 4}
+b = {3, 4, 5, 6}
+
+a.union(b)
+
+{1, 2, 3, 4, 5, 6}
+
+# intersección
+
+a.intersection(b)
+
+{3, 4}
+
+# sub-sets
+
+{1, 2}.issubset(a)
+
+True
+
+{5, 6}.issubset(a)
+
+False
+
+List comprehension
+List comprehension es una de las características más útiles en Python ya que proveen una manera rápida y concisa de crear una nueva lista a partir de otra pudiendo filtrar o transformar los diferentes elementos.
+l = [1, 2, 3, 4, 5]
+
+# obtener una nueva lista con elementos multiplicados por 2
+l2 = []
+for i in l:
+    l2.append(i*2)
+l2
+
+[2, 4, 6, 8, 10]
+
+# usando `list comprehension`
+
+l2 = [2*i for i in l]
+l2
+
+[2, 4, 6, 8, 10]
+
+Podemos usar expresiones equivalentes con el resto de estructuras de datos, por ejemplo con un dict.
+l1 = ["a", "b", "c"]
+l2 = [1, 2, 3]
+
+d = {k: v for k, v in zip(l1, l2) if v <= 2}
+d
+
+    {'a': 1, 'b': 2}
+
+Como puedes ver list comprehension permite generar nuevas estructuras de datos de manera concisa, siendo muy útil para operaciones de mapeo o filtrado.
+Resumen
+En este post hemos visto las estructuras de datos que Python no ofrece así como las funciones más útiles a la hora de trabajar con ellas. Podemos usar tuplas, listas, dicts y sets para agrupar objetos de Python en estructuras con entidad y funcionalidad propia. Librerías de análisis de datos como Numpy o Pandas extienden estas estructuras de datos y funcionalidades para llevar a cabo tareas más complejas e interesantes.
