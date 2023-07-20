@@ -59,7 +59,7 @@ TWEET:"""
 			content = post_soup.find('div', class_="post").text
 			# generar tweet
 			tweet = llm_chain.run(content)
-			tweet += " Aprende más en: https://www.sensiocoders.com/blog/" + post_url
+			tweet += " https://www.sensiocoders.com/blog/" + post_url
 			assert len(tweet) <= 280
 			print(tweet)
 			client.create_tweet(text=tweet)
