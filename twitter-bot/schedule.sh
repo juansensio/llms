@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Path to your Python script
-PYTHON_SCRIPT="/home/juan/Desktop/llms/blog.py"
+PYTHON_SCRIPT="/home/juan/Desktop/llms/twitter-bot/blog.py"
 
 # Write out current crontab
 crontab -l > mycron
